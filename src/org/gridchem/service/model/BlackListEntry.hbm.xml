@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+<!--
+
+Mapping file for the BlackListEntry class of the GridChem Middleware Service.
+
+A BlackListEntry is an entry banning the use of a software package on the CCG
+by an individual user.  BlackListEntries may be enabled or disabled at any time.
+They are left in place for logging purposes.
+
+@author Rion Dooley < dooley [at] tacc [dot] utexas [dot] edu >
+
+-->
+<hibernate-mapping package="org.gridchem.service.model">
+
+<class name="org.gridchem.service.model.BlackListEntry" table="BlackList" lazy="true">
+
+	<!-- 
+	<id name="id"
+		type="long"
+		column="id">
+		<generator class="native"/>
+	</id>
+	 -->
+	 
+	<composite-id name="id"
+				 class="BlackListEntry$Id">
+
+        <key-property name="userId"
+	        			column="userID"
+					access="field"/>
+
+        <key-property name="softwareId"
+                      column="softwareID"
+                      access="field"/>
+	</composite-id>
+	
+	<many-to-one name="user" 
+				class="org.gridchem.service.model.User"
+				column="userID"
+				insert="false" 
+				update="false"
+				access="field"/>
+	
+	<many-to-one name="software" 
+				class="org.gridchem.service.model.Software" 
+				column="softwareID"
+				insert="false" 
+				update="false"
+				access="field"/>
+	
+	<property name="enabled" type="boolean" column="enabled"/>
+	<property name="created" type="date" column="created"/>
+	<property name="lastUpdated" type="date" column="lastUpdated"/>
+	
+	
+</class>
+
+</hibernate-mapping>

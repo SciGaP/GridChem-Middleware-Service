@@ -1,0 +1,2 @@
+* 2005/09/16 i use a hard link for now and change only launch_generic_script.cgi - but editor like emacs may screw this up by moving the file to a backup name
+  for i in gamess_launch.cgi gauss_launch2.cgi nwchem_launch.cgi molpro_launch.cgi ; do echo "UPDATING $i"; \ln -f launch_generic_script.cgi $i; done

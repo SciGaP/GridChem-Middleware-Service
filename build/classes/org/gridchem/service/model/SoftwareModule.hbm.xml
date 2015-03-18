@@ -1,0 +1,15 @@
+<!DOCTYPE hibernate-mapping PUBLIC
+ "-//Hibernate/Hibernate Mapping DTD 2.0//EN"
+ "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+
+<hibernate-mapping package="org.gridchem.service.model">
+	 <class name="org.gridchem.service.model.SoftwareModule" 
+	 		table="SoftwareModules">
+		 <id name="id" column="id" type="long">
+			 <generator class="native"/>
+		 </id>
+		 <property name="name" column="name" type="string"/>
+		 <many-to-one name="software" column="softwareID" class="org.gridchem.service.model.Software" not-null="true"/>
+		 
+	 </class>
+ </hibernate-mapping>

@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ !
+ ! Copyright 2006 The Apache Software Foundation.
+ !
+ ! Licensed under the Apache License, Version 2.0 (the "License");
+ ! you may not use this file except in compliance with the License.
+ ! You may obtain a copy of the License at
+ !
+ !      http://www.apache.org/licenses/LICENSE-2.0
+ !
+ ! Unless required by applicable law or agreed to in writing, software
+ ! distributed under the License is distributed on an "AS IS" BASIS,
+ ! WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ ! See the License for the specific language governing permissions and
+ ! limitations under the License.
+ !-->
+
+<project basedir="." default="clean">
+
+	<property environment="env" />
+
+	<property file="build.properties" />
+
+	<property name="client.repos.dir" value="build/client_repository" />
+	<property name="keys.dir" value="security/" />
+	<property name="temp.client.dir" value="build/temp_client" />
+	
+	<target name="check.tomcat" unless="tomcat.home">
+		<echo message="CATALINA_HOME must be set" />
+	</target>
+
+	<target name="check.axis2" unless="axis2.home">
+		<echo message="AXIS2_HOME must be set" />
+	</target>
+
+	<!-- Delete compiled class files -->
+	<target name="clean">
+		<delete dir="build" />
+	</target>
+	
+	<!-- Compile the service code -->
+	<target name="compile">
+		
+		<!-- Create service build structure -->
+		<mkdir dir="build" />
+		<mkdir dir="build/classes" />
+		
+		<javac srcdir="src" destdir="build/classes">
+			<classpath>
+				<fileset dir="lib/common">
+					<include name="**/*.jar" />
+				</fileset>
+				<fileset dir="lib/grid">
+					<include name="**/*.jar" />
+				</fileset>
+				<fileset dir="lib/hibernate">
+					<include name="**/*.jar" />
+				</fileset>
+				<fileset dir="lib/notification">
+					<include name="**/*.jar" />
+				</fileset>
+				<fileset dir="lib/server">
+					<include name="**/*.jar" />
+				</fileset>
+				<fileset dir="${axis2.home}/lib">
+					<include name="**/*.jar" />
+				</fileset>
+			</classpath>
+		</javac>
+	</target>
+	
+	<!-- Macro to create a service repo for a given sample -->
+	<target name="build.aar" depends="clean, compile">
+
+		<!-- Package the dependent files to the build directory -->
+		<copy todir="build/classes" flatten="false">
+			<fileset dir="WebContent">
+				<include name="META-INF/*"/>
+			</fileset>
+			<fileset dir="WebContent/WEB-INF/classes">
+				<include name="META-INF"/>
+				<include name="**/*"/>
+			</fileset>
+		</copy>
+
+		<!-- Copy the dependent libraries to the build directory -->
+		<mkdir dir="build/classes/lib" />
+		<copy todir="build/classes/lib" flatten="true">
+			<fileset dir="lib">
+				<include name="**/*.jar" />
+			</fileset>
+		</copy>
+		
+		<!-- Copy the hibernate files to the classes directory -->
+		<copy todir="build/classes/org/gridchem/service/model">
+			<fileset dir="src/org/gridchem/service/model">
+				<include name="**/*.hbm.xml" />
+			</fileset>
+		</copy>
+		<copy todir="build/classes/org/gridchem/service/model/enumeration">
+			<fileset dir="src/org/gridchem/service/model/enumeration">
+				<include name="**/*.hbm.xml" />
+			</fileset>
+		</copy>
+		
+		<!-- Package the built deployment structure -->
+		<jar destfile="build/gms.aar">
+			<fileset dir="build/classes">
+				<include name="**/*"/>
+			</fileset>
+		</jar>
+
+	</target>
+	
+	<!-- Copy the aar to the axis2 deployment -->
+	<target name="deploy.service" depends="build.aar">
+		
+		<!-- Bundle the aar file from the created directory -->
+		<copy file="build/gms.aar" todir="${tomcat.home}/webapps/axis2/WEB-INF/services/"/>
+		
+	</target>
+
+	<!-- Deploy jndi -->
+	<target name="deploy.jndi" depends="check.tomcat, check.axis2">
+		
+		<!-- Copy the jndi-enabled web.xml file to the axis2 webapp -->
+		<copy file="db/jndi/web.xml" tofile="${tomcat.home}/webapps/axis2/WEB-INF/web.xml" overwrite="true" />
+		
+		<!-- Copy the jndi context definition to the tomcat distribution. This will overwrite the current one. -->
+		<copy file="${tomcat.home}/conf/context.xml" tofile="${tomcat.home}/conf/context.xml.bak" overwrite="true" />
+		<copy file="db/jndi/context.xml" tofile="${tomcat.home}/conf/context.xml" overwrite="true" />
+				
+	</target>
+	
+	<!-- Deploy cgi files and turn on cgi support in Tomcat -->
+	<target name="deploy.cgi" depends="check.tomcat, check.axis2">
+		
+		<!-- Rename cgi dependent jar included with Tomcat -->
+		<copy file="${tomcat.home}/server/lib/servlets-cgi.renametojar" tofile="${tomcat.home}/server/lib/servlets-cgi.jar" overwrite="true" />
+		
+		<!-- Copy our modified web.xml file to Tomcat, thereby enabling cgi -->
+		<copy file="${cgi.dir}/web.xml" tofile="${tomcat.home}/conf/web.xml" overwrite="true" />
+		
+		<!-- Copy our cgi files to the Tomcat ROOT webapp -->
+		<copy todir="${tomcat.home}/webapps/ROOT/WEB-INF/cgi" overwrite="true" >
+			<fileset dir="${cgi.dir}/scripts"/>
+		</copy>
+		
+	</target>
+	
+
+	
+	<!-- Enable ssl on Tomcat using our certificate -->
+	<target name="deploy.ssl">
+		
+		<mkdir dir="${tomcat.home}/security"/>
+		
+		<!-- Generate a server key for ssl -->
+		<genkey alias="tomcat" storepass="changeit" keystore="${tomcat.home}/security/ccgkeystore" keyalg="RSA" validity="730">
+			<dname>
+			    <param name="CN" value="GridChem"/>
+			    <param name="OU" value="Computational Chemistry Grid"/>
+			    <param name="O"  value="National Science Foundation"/>
+			    <param name="C"  value="US"/>
+			  </dname>
+		</genkey>
+		
+	</target>
+
+
+	
+	<!-- Package the service interfaces, beans, and utils -->
+	<target name="jar.client.api" depends="compile">
+		
+		<copy todir="build/gms-client-api/org/gridchem/service" flatten="false">
+			<fileset dir="build/classes/org/gridchem/service">
+				<include name="*.class"/>
+			</fileset>
+		</copy>
+			
+		<copy todir="build/gms-client-api/org/gridchem/service/beans" flatten="false">
+			<fileset dir="build/classes/org/gridchem/service/beans"/>
+		</copy>
+		
+		<copy todir="build/gms-client-api/org/gridchem/service/exceptions" flatten="false">
+			<fileset dir="build/classes/org/gridchem/service/exceptions"/>
+		</copy>
+		
+		<mkdir dir="build/gms-client-api/org/gridchem/service/model/enumeration" />
+		
+		<copy todir="build/gms-client-api/org/gridchem/service/model/enumeration" flatten="false">
+			<fileset dir="build/classes/org/gridchem/service/model/enumeration"/>
+		</copy>
+		
+				
+		<copy todir="build/gms-client-api/org/gridchem/service/util/crypt" flatten="false">
+			<fileset dir="build/classes/org/gridchem/service/util/crypt"/>
+		</copy>
+		
+		<jar destfile="build/gms-client-api.jar" basedir="build/gms-client-api"/>
+		
+		<delete dir="build/gms-client-api"/>
+		
+	</target>
+
+
+
+        <!-- Package the service stubs-->
+        <target name="jar.test_client.api" depends="compile">
+
+                <copy todir="build/GMS-test-client-api/org/gridchem/service" flatten="false">
+                        <fileset dir="build/classes/org/gridchem/service">
+                                <include name="*.class"/>
+                        </fileset>
+                </copy>
+
+
+                <copy todir="build/GMS-test-client-api/org/gridchem/service/impl" flatten="false">
+                        <fileset dir="build/classes/org/gridchem/service/impl" />
+                </copy>
+
+                <mkdir dir="build/GMS-test-client-api/org/gridchem/service/stub" />
+
+                <copy todir="build/GMS-test-client-api/org/gridchem/service/stub" flatten="false">
+                        <fileset dir="build/classes/org/gridchem/service/stub"/>
+		</copy>
+
+                <copy todir="build/GMS-test-client-api/org/gridchem/service/stub/file" flatten="false">
+                        <fileset dir="build/classes/org/gridchem/service/stub/file"/>
+		</copy>
+
+                <copy todir="build/GMS-test-client-api/org/gridchem/service/stub/job" flatten="false">
+                        <fileset dir="build/classes/org/gridchem/service/stub/job"/>
+		</copy>
+
+                <copy todir="build/GMS-test-client-api/org/gridchem/service/stub/notification" flatten="false">
+                        <fileset dir="build/classes/org/gridchem/service/stub/notification"/>
+		</copy>
+
+                <copy todir="build/GMS-test-client-api/org/gridchem/service/stub/project" flatten="false">
+                        <fileset dir="build/classes/org/gridchem/service/stub/project"/>
+		 </copy>
+
+                <copy todir="build/GMS-test-client-api/org/gridchem/service/stub/resource" flatten="false">
+                        <fileset dir="build/classes/org/gridchem/service/stub/resource"/>
+		</copy>
+
+                <copy todir="build/GMS-test-client-api/org/gridchem/service/stub/session" flatten="false">
+                        <fileset dir="build/classes/org/gridchem/service/stub/session"/>
+		 </copy>
+
+                <copy todir="build/GMS-test-client-api/org/gridchem/service/stub/software" flatten="false">
+                        <fileset dir="build/classes/org/gridchem/service/stub/software"/>
+		 </copy>
+
+                 <copy todir="build/GMS-test-client-api/org/gridchem/service/stub/user" flatten="false">
+                        <fileset dir="build/classes/org/gridchem/service/stub/user"/>
+		 </copy>
+ 
+                <jar destfile="build/GMS-test-client.jar" basedir="build/GMS-test-client-api"/>
+
+                <!--delete dir="build/GMS-test-client-api"/ -->
+
+        </target>
+
+
+
+</project>
+

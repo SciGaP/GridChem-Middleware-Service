@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- this is the default server.xml file that ships with tomcat updated to 
+     enable a database connection to the GMS database via jndi 
+  -->
+
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<!-- The contents of this file will be loaded for each web application -->
+<Context>
+
+    <!-- Default set of monitored resources -->
+    <WatchedResource>WEB-INF/web.xml</WatchedResource>
+	
+    <!-- Uncomment this to disable session persistence across Tomcat restarts -->
+    <!--
+    <Manager pathname="" />
+    -->
+    <!-- gms jndi resource -->
+  <!--  <Resource name="jdbc/GridchemServiceSessionFactory" 
+      auth="Container" 
+      type="javax.sql.DataSource" 
+      removeAbandoned="true" 
+      removeAbandonedTimeout="30" 
+      maxActive="80" 
+      maxIdle="30" 
+      maxWait="1000" 
+      username="root" 
+      password="" 
+      driverClassName="com.mysql.jdbc.Driver" 
+      url="jdbc:mysql://localhost/GMS_WS?zeroDateTimeBehavior=convertToNull"
+      useUnicode="true" 
+      characterEncoding="utf-8" 
+      characterSetResults="utf8"/> -->
+
+
+    <!-- <Resource name="jdbc/GridchemServiceSessionFactory" 
+      auth="Container" 
+      type="javax.sql.DataSource" 
+      removeAbandoned="true" 
+      removeAbandonedTimeout="30" 
+      maxActive="80" 
+      maxIdle="30" 
+      maxWait="1000" 
+      username="root" 
+      password="modified_20051122" 
+      driverClassName="com.mysql.jdbc.Driver" 
+      url="jdbc:mysql://derrick.tacc.utexas.edu:3307/GMS2_0?jdbcCompliantTruncation=false&amp;zeroDateTimeBehavior=convertToNull" 
+      useUnicode="true" 
+      characterEncoding="utf-8" 
+      characterSetResults="utf8"/> -->
+<Resource name="jdbc/GridchemServiceSessionFactory"
+      auth="Container"
+      type="javax.sql.DataSource"
+      removeAbandoned="true"
+      removeAbandonedTimeout="30"
+      maxActive="80"
+      maxIdle="30"
+      maxWait="1000"
+      username="gms_db_manager"
+      password="gc4@ll"
+      driverClassName="com.mysql.jdbc.Driver"
+      url="jdbc:mysql://ccg-mw2.ncsa.uiuc.edu/GMS2_0?jdbcCompliantTruncation=false&amp;zeroDateTimeBehavior=convertToNull"
+      useUnicode="true"
+      characterEncoding="utf-8"
+      characterSetResults="utf8"/>
+
+</Context>

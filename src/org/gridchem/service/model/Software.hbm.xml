@@ -1,0 +1,48 @@
+<!DOCTYPE hibernate-mapping PUBLIC
+ "-//Hibernate/Hibernate Mapping DTD 2.0//EN"
+ "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+
+<hibernate-mapping package="org.gridchem.service.model">
+	 <class name="org.gridchem.service.model.Software" 
+	 		table="Software">
+		 <id name="id" column="softwareResourceID" type="long">
+			 <generator class="native"/>
+		 </id>
+		 <property name="name" column="name" type="string"/>
+		 <property name="comment" column="comment" type="text"/>
+		 <property name="created" column="created" type="java.util.Date"/>
+		 <property name="lastUpdated" column="lastUpdated" type="java.util.Date"/>
+	 	 <property name="authorName" type="string" length="255" column="authorName"/>
+		 <property name="authorEmail" type="string" column="authorEmail"/>	
+		 <property name="acronym" type="string" column="acronym"/>
+		 <property name="versionRelease" type="string" column="versionRelease"/>
+		 <property name="versionDate" type="date" column="versionDate"/>
+		 <property name="shortDescription" type="string" column="shortDescription"/>
+		 <property name="longDescription" type="string" column="longDescription"/>
+		 <property name="helpWebsite" type="string" column="helpWebSite"/>	
+		 <property name="inputFileExtension" type="string" column="inputFileExtension"/>	
+		 
+			 <!-- Mapping for SoftwareInstallation association. A software install-
+			      ation is the physical realization of an application on a particular
+			      compute resource.  This is a one-to-many relationship with the 
+			      SoftwareInstallation table.  We choose this approach rather than 
+			      viewing a VO as essentially the softwareInstallation table, which 
+			      would represent hardware and software resources in order to enable
+			      software, compute, network, and storage resources to all become 
+			      subclasses of a general GMSResource class in the future and still 
+			      maintain the UserResource abstraction.-->
+	   		<!--<set    name="softwareInstallations"
+			 		lazy="true"
+					inverse="true">
+				<key column="softwareResourceID"/>
+				<one-to-many class="org.gridchem.service.model.SoftwareInstallation"/>
+			 </set>
+		 -->
+		 <set   name="modules"
+		 		lazy="true"
+				inverse="true">
+			<key column="softwareId"/>
+			<one-to-many class="org.gridchem.service.model.SoftwareModule"/>
+		 </set>
+	 </class>
+ </hibernate-mapping>

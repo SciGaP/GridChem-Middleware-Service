@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping package="org.gridchem.service.model">
+
+<!--
+
+Mapping file for the LogicalFile class of GridChem Middleware Service.
+
+This is a composite mapping of the 
+
+@author Rion Dooley < dooley [at] cct [dot] lsu [dot] edu >
+@author Christian Bauer <christian@hibernate.org>
+
+-->
+
+<class name="LogicalFile"
+	   table="Files"
+	   lazy="true">
+
+	<id name="id"
+		type="long"
+		column="id"
+		unsaved-value="null"
+		access="org.hibernate.property.DirectPropertyAccessor">
+		<generator class="native"/>
+	</id>
+			        
+    <property name="userId" type="long" column="userId"/>
+    <property name="uuid" type="string" column="uuid"/>
+    <property name="slocalPath" type="string" column="slocalPath"/>
+    <property name="localPath" type="string" column="localPath"/>
+    <property name="remotePath" type="string" column="remotePath"/>
+    <property name="jobId" type="long" column="jobId"/>
+    <property name="created" type="date" column="created"/>
+    <property name="length" type="long" column="length"/>
+    <property name="lastUpdated" type="date" column="lastUpdated"/>
+    
+    
+</class>
+
+</hibernate-mapping>

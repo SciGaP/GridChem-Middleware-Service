@@ -1,0 +1,70 @@
+/**
+ * 
+ */
+package org.gridchem.service.authentication.teragrid;
+
+import java.util.Map;
+
+import org.gridchem.service.authentication.LoginProvider;
+import org.gridchem.service.beans.AuthenticationBean;
+import org.gridchem.service.exceptions.CredentialManagementException;
+import org.gridchem.service.exceptions.LoginException;
+import org.gridchem.service.exceptions.UserException;
+import org.gridchem.service.util.SSOUtils;
+import org.gridchem.service.util.ServiceUtil;
+import org.gridchem.service.util.Settings;
+import org.ietf.jgss.GSSCredential;
+
+/**
+ * @author dooley
+ *
+ */
+public class TeraGridLoginProvider implements LoginProvider {
+//	private static Logger log = Logger.getLogger(TeraGridLoginProvider.class);
+	
+	private String myproxyServer;
+	private int myproxyPort;
+
+	public AuthenticationBean login(String username, String pass, Map<String,String> authMap)
+			throws CredentialManagementException, UserException {
+		
+		if (authMap == null || authMap.isEmpty()) throw new LoginException("Authentication service not specified.");
+		
+		myproxyServer = Settings.TERAGRID_MYPROXY_SERVER;
+		myproxyPort = Settings.TERAGRID_MYPROXY_PORT;
+		
+		if (!ServiceUtil.isValid(myproxyPort)) {
+			myproxyPort = 0;
+		} 
+		
+		if (!ServiceUtil.isValid(username)) throw new LoginException("Bad username/password combination.");
+		if (!ServiceUtil.isValid(pass)) throw new LoginException("Bad username/password combination.");
+		if (!ServiceUtil.isValid(myproxyServer)) throw new LoginException("No myproxy server specified.");
+		System.out.println("**********************************");
+		System.out.println(myproxyServer);
+		System.out.println(myproxyPort);
+		System.out.println(username);
+		System.out.println(pass);
+		// First we log the user in and generate a temporary sso password for them
+		// so we don't store their long term pass anywhere.
+		String tempPass = SSOUtils.createSessionPassword(myproxyServer, myproxyPort, username, pass);
+		
+		if (tempPass != null) {
+			SSOUtils.authenticateUser(myproxyServer, myproxyPort, username, tempPass);
+			// Next we pull a proxy to use on the user's behalf.
+//			GSSCredential cred = SSOUtils.getCredFromMyProxy(myproxyServer, myproxyPort, username, tempPass);
+			GSSCredential cred = SSOUtils.getCredFromMyProxy(myproxyServer, myproxyPort, username, pass);
+			if (cred == null) {
+				throw new LoginException("Bad username/password combination.");
+			} else {
+				// lastly we return the AuthenticationBean to the service.
+				return new TeraGridAuthentication(cred, username, username, tempPass);
+			}
+		} else {
+			throw new LoginException("Bad username/password combination.");
+		}
+	}
+	
+	 
+
+}

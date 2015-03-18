@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+<!--
+
+Mapping file for the User class of the GridChem Middleware Service.
+
+A User is a versioned entity, with some special properties.
+One is the username, it is immutable and unique. The
+userResources and userJobs attributes map to sets of GMSResources
+and Jobs related to the User via the UserResource and UserJob
+classes.
+
+We never load any GMSResources or Jobs when a User is retrieved.
+
+@author Rion Dooley < dooley [at] cct [dot] lsu [dot] edu >
+
+-->
+<hibernate-mapping package="org.gridchem.service.model">
+
+<class name="Queue" table="Queues" lazy="false">
+
+	<id name="id"
+		type="long"
+		column="queueID"
+		unsaved-value="null"
+		access="org.hibernate.property.DirectPropertyAccessor">
+		<generator class="native"/>
+	</id>
+
+	<property name="name" type="string" column="name"/>
+	<property name="comment" type="string" column="comment"/>
+	<property name="status" type="queue_status" column="status"/>
+	<property name="theDefault" type="boolean" column="isDefault"/>
+	<property name="assignedCpuNumber" type="long" column="assignedCpuNumber"/>
+	<property name="maxQueuedJobs" type="long" column="queueLimit"/>
+	<property name="maxRunningJobs" type="long" column="runLimit"/>
+	<property name="maxWallClockTime" type="java.util.Calendar" column="wallClockLimit"/>
+	<property name="running" type="long" column="running"/>
+	<property name="waiting" type="long" column="waiting"/>
+	<property name="other" type="long" column="other"/>
+	<property name="maxCpuTime" type="java.util.Calendar" column="cpuTimeLimit"/>
+	<property name="maxCpus" type="integer" column="maxCPUs"/>
+	<property name="maxNodes" type="integer" column="maxNodes"/>
+	<property name="lastUpdate" type="java.util.Date" column="lastUpdated"/>
+	<property name="maxCpuMem" type="long" column="memLimitPerCPU"/>
+				
+	<many-to-one name="compute" class="org.gridchem.service.model.ComputeResource" column="computeResourceID"/>
+				
+</class>
+
+</hibernate-mapping>

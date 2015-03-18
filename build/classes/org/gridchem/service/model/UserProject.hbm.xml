@@ -1,0 +1,86 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping package="org.gridchem.service.model">
+
+<!--
+
+Mapping file for the UserProject class of GridChem Middleware Service.
+
+Each user may have multiple projects and each project may have multiple
+users.  The latter case occurs in the case of a PI who requests accounts 
+for his students. Rather than map this as a many-to-many between the two 
+tables, we map it using a third entitiy, the join table UserProject. 
+This allows us to add attributes to the association such as creation date,
+userType, usage, etc.
+
+This mapping is currently keyed off of the incremental ID attribute, however
+it should be a composite key using the user's ID and project ID.
+	
+@author Rion Dooley < dooley [at] cct [dot] lsu [dot] edu >
+@author Christian Bauer <christian@hibernate.org>
+
+-->
+
+<class name="UserProject"
+	   table="UserProject"
+	   lazy="true">
+
+	<!--id name="id"
+		type="long"
+		column="ID"
+		unsaved-value="null"
+		access="org.hibernate.property.DirectPropertyAccessor">
+		<generator class="native"/>
+	</id-->
+	
+	<composite-id name="id"
+				 class="UserProject$Id">
+
+        <key-property name="userId"
+	        			column="userID"
+					access="field"/>
+
+        <key-property name="projectId"
+                      column="projectID"
+                      access="field"/>
+	</composite-id>
+		        
+    <many-to-one name="user" 
+				class="org.gridchem.service.model.User"
+				column="userID"
+				insert="false" 
+				update="false"
+				access="field"/>
+	
+	<many-to-one name="project" 
+				class="org.gridchem.service.model.Project" 
+				column="projectID"
+				insert="false" 
+				update="false"
+				access="field"/>
+	
+	<property name="userType" column="userType" type="admin_type"/>
+	<property name="enabled" column="enabled" type="boolean"/>
+	<many-to-one name="mss" column="mss" class="org.gridchem.service.model.StorageResource"/>
+	
+	<component name="usage" class="org.gridchem.service.model.Usage">
+		<property name="used" type="double" column="SUsUsedUser"/>
+		<property name="allocated" type="double" column="SUsLimitUser"/>
+		<property name="balance" type="double" column="SUsBalanceUser"/>
+	</component>
+	
+	<!--set name="userProjectResources" 
+	 		inverse="true"
+			cascade="save-update">
+		<key>
+			<column name="userID"/>
+			<column name="projectID"/>
+		</key>
+		<one-to-many class="org.gridchem.service.model.UserProjectResource"/>
+	 </set--> 
+	
+</class>
+
+</hibernate-mapping>

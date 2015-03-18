@@ -1,0 +1,104 @@
+<!DOCTYPE hibernate-configuration PUBLIC
+ "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+ "http://hibernate.sourceforge.net/hibernate-configuration-3.0.dtd">
+
+<!-- DO NOT EDIT: This is a generated file that is synchronized -->
+<!-- by MyEclipse Hibernate tool integration.                   -->
+<hibernate-configuration>
+
+ <session-factory>
+         <!-- properties -->
+
+		<!-- Local JNDI connection properties -->
+     	<property name="connection.datasource">java:/comp/env/jdbc/GridchemServiceSessionFactory</property>
+		
+         <!-- Local DB connection properties -->
+     	<!--
+     	<property name="connection.username">root</property>
+     	<property name="connection.url">jdbc:mysql://localhost/GMS_WS?zeroDateTimeBehavior=convertToNull</property>
+     	<property name="connection.password"></property>
+		-->
+		
+         <!-- derrick DB connection properties -->
+         <!--<property name="connection.username">gms</property>
+         <property name="connection.url">jdbc:mysql://derrick.tacc.utexas.edu:3307/GMS_WS?jdbcCompliantTruncation=false&amp;zeroDateTimeBehavior=convertToNull</property>
+         <property name="connection.password">GCmw@ar3</property>-->
+
+
+         <!-- mw1 DB connection properties -->
+<!--     <property name="connection.username">ccg-admin</property>  -->
+<!-- 	<property name="connection.url">jdbc:mysql://ccg-mw1.ncsa.uiuc.edu/GMS_WS?zeroDateTimeBehavior=convertToNull</property>  -->
+<!-- 	<property name="connection.password">^^31l0n</property>  -->
+
+		 <!-- General connection properties -->
+         <property name="dialect">org.hibernate.dialect.MySQLDialect</property>
+<!--         <property name="connection.driver_class">com.mysql.jdbc.Driver</property>-->
+<!--         <property name="hibernate.cache.provider_class">org.hibernate.cache.ehCacheProvider</property>-->
+<!--         <property name="hibernate.cache.use_second_level_cache">false</property>-->
+<!--         <property name="hibernate.cache.use_query_cache">false</property>-->
+<!--         <property name="hibernate.connection.autoReconnect">true</property>-->
+         <property name="hibernate.current_session_context_class">thread</property>
+         <property name="transaction.flush_before_completion">true</property>
+<!--         <property name="transaction.auto_close_session">true</property>-->
+         <property name="hibernate.query.factory_class">org.hibernate.hql.classic.ClassicQueryTranslatorFactory</property>
+         <!--property name="hibernate.c3p0.max_size">0</property>
+         <property name="hibernate.current_session_context_class">org.hibernate.context.ThreadLocalSessionContext</property-->
+         
+         <!-- configuration pool via c3p0--> 
+<!--		 <property name="hibernate.c3p0.acquire_increment">1</property>-->
+<!--		 <property name="hibernate.c3p0.idle_test_period">120</property>  seconds -->
+<!--		 <property name="hibernate.c3p0.max_size">100</property>-->
+<!--		 <property name="hibernate.c3p0.max_statements">0</property>-->
+<!--		 <property name="hibernate.c3p0.min_size">10</property>-->
+<!--		 <property name="hibernate.c3p0.timeout">360</property>  seconds -->
+         
+        <!-- mapping files -->
+         <!-- -->
+         <mapping resource="org/gridchem/service/model/enumeration/EnumerationTypes.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/User.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/LogicalFile.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/Preferences.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/Notification.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/UserProject.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/ProjectResource.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/UserProjectResource.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/Site.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/Queue.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/SoftwareInstallation.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/Resource.hbm.xml"/>
+	 <mapping resource="org/gridchem/service/model/Software.hbm.xml"/>
+	 <mapping resource="org/gridchem/service/model/SoftwareModule.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/Project.hbm.xml"/>  
+         <mapping resource="org/gridchem/service/model/Job.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/GMSSession.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/BlackListEntry.hbm.xml"/>
+         <mapping resource="org/gridchem/service/model/Workflow.hbm.xml"/>
+         <!--   -->
+         
+         
+         <!-- Uncomment for testing -->
+         <!-- 
+         <mapping resource="src/org/gridchem/service/model/enumeration/EnumerationTypes.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/User.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/LogicalFile.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/Preferences.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/Notification.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/UserProject.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/ProjectResource.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/UserProjectResource.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/Site.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/Queue.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/SoftwareInstallation.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/Resource.hbm.xml"/>
+		 <mapping resource="src/org/gridchem/service/model/Software.hbm.xml"/>
+		 <mapping resource="src/org/gridchem/service/model/SoftwareModule.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/Project.hbm.xml"/>  
+         <mapping resource="src/org/gridchem/service/model/Job.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/GMSSession.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/BlackListEntry.hbm.xml"/>
+         <mapping resource="src/org/gridchem/service/model/Workflow.hbm.xml"/>
+          -->
+         
+ </session-factory>
+
+</hibernate-configuration>

@@ -1,0 +1,86 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+<!--
+
+Mapping file for the SoftwareInstallation class of the GridChem Middleware Service.
+
+A SoftwareInstallation is a concrete instance of software present on a 
+ComputeResource. We map this using a join class in order to provide 
+installation-specific attributes which don't apply to either composite 
+class such as compiler, executable path, environment, etc.
+	
+This class is currently referenced by a unique incremental ID.  It should
+be keyed by a composite key of the SoftwareResource and ComputeResource.
+This remains to be implemented.
+	
+@author Rion Dooley < dooley [at] cct [dot] lsu [dot] edu >
+!!!!!we need to map this internally from the compute resource and software resource mapping files!!!!!
+-->
+<hibernate-mapping package="org.gridchem.service.model">
+
+<class name="SoftwareInstallation"
+	   table="SoftwareInstallation"
+	   lazy="true">
+
+	<!--id name="softwareInstallationId"
+		type="java.lang.Long"
+		column="softwareInstallationID">
+		<generator class="native"/>
+	</id-->
+	<composite-id name="id" class="SoftwareInstallation$SoftwareInstallationId">
+
+        	<key-property name="softwareId"
+						access="field"
+                      	column="softwareResourceID"/>
+
+        	<key-property name="computeResourceId"
+                      	column="computeResourceID"
+                      	access="field"/>
+	</composite-id>
+	
+	<!-- The composite id components are foreign keys to the ComputeResources and SoftwareResources tables -->
+	<many-to-one name="computeResource" 
+				class="org.gridchem.service.model.ComputeResource" 
+				column="computeResourceID"
+				insert="false" 
+				update="false"/>
+	<many-to-one name="software" 
+				class="org.gridchem.service.model.Software" 
+				column="softwareResourceID"
+				insert="false" 
+				update="false"/>
+	
+	<!-- We don't change the username, so map it with update="false".
+		 This is an immutable property, it is also unique. -->
+	<property name="compileDate" type="date" column="compileDate"/>
+	<property name="compilerName" type="string" column="compilerName"/>
+	<property name="compilerVersion" type="string" column="compilerVersion"/>
+	<property name="homeDir" type="string" column="homeDir" not-null="true"/>
+	<property name="module" type="string" column="module"/>
+	<property name="executablePath" type="string" column="executablePath" not-null="true"/>
+	<property name="scriptPath" type="string" column="scriptPath" not-null="true"/>
+	<property name="arguments" type="string" column="arguments"/>
+	<!--property name="appusage" type="string" column="appusage"/>
+	<property name="licenseType" type="string" column="licenseType"/>
+	<property name="totalLicenses" type="int" column="totalLicenses"/-->
+	<property name="licenseInfo" type="text" column="licenseInfo"/>
+	<property name="licenseServer" type="string" column="licenseServer"/>				
+	<property name="startupEnvironment" type="text" column="startupEnvironment"/>	
+	<property name="softEnv" type="string" column="softEnv"/>	
+	<property name="softwareName" type="string" column="name" not-null="true"/>	
+	<property name="lastUpdated" type="date" column="lastUpdated"/>	
+	<property name="valid" type="boolean" column="valid" not-null="true"/>	
+	
+	<filter name="filterinValidSoftware" condition="valid = 1"/>
+	<!--set name="jobs"
+		 inverse="true">
+		<key column="softwareInstallationID"/>
+		<one-to-many class="org.gridchem.service.model.Job"/>
+	</set-->
+					
+</class>
+
+<filter-def name="filterinValidSoftware"/>
+
+</hibernate-mapping>

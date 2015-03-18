@@ -1,0 +1,8 @@
+In order for job submission to work properly, the cgi scripts must 
+be checked out from cvs into a directory named 'scripts' within
+this folder.  The following should do the trick if run from the
+$GMS_HOME/cgi directory:
+
+$> cvs -d :ext:<username>@www.gridchem.org:/home/cvs/CCG co -d scripts \
+   GMS/bin/scripts/server/ccg-mw1 -r v0_3_0
+

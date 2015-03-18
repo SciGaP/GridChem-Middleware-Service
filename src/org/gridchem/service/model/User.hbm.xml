@@ -1,0 +1,167 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+<!--
+
+Mapping file for the User class of the GridChem Middleware Service.
+
+A User is a versioned entity, with some special properties.
+One is the username, it is immutable and unique. The
+userResources and userJobs attributes map to sets of GMSResources
+and Jobs related to the User via the UserResource and UserJob
+classes.
+
+We never load any GMSResources or Jobs when a User is retrieved.
+
+@author Rion Dooley < dooley [at] cct [dot] lsu [dot] edu >
+
+-->
+<hibernate-mapping package="org.gridchem.service.model">
+
+<class name="User" table="Users">
+	<id name="id"
+		type="long"
+		column="userID"
+		unsaved-value="null"
+		access="org.hibernate.property.DirectPropertyAccessor">
+		<generator class="native"/>
+	</id>
+
+	<!-- We don't change the username, so map it with update="false".
+		 This is an immutable property, it is also unique. -->
+	<property name="username" type="string" column="userName"/>
+	<property name="firstName" type="string" column="firstName"/>
+	<property name="lastName" type="string" column="lastName"/>
+	<property name="middleInitial" type="string" column="middleInitial"/>
+	<property name="originalPassword" type="string" column="initialPassword"/>
+	<property name="password" type="string" column="password"/>
+	<property name="permission" column="privilege" type="admin_type"/>
+	<property name="created" type="java.util.Date" column="created"/>
+	<property name="classification" column="researchStatus" type="research_status"/>
+	<property name="institution" type="string" column="institute"/>
+	<property name="department" type="string" column="department"/>
+	<property name="phone" type="string" column="phone"/>
+	<property name="cell" type="string" column="cell"/>
+	<property name="fax" type="string" column="fax"/>
+	<property name="email" type="string" column="email"/>
+	<property name="im" type="string" column="imHandle"/>
+	<property name="comment" type="text" column="comment"/>
+
+	<component name="address" class="org.gridchem.service.beans.Address">
+		<property name="street1" type="string" column="addr1"/>
+		<property name="street2" type="string" column="addr2"/>
+		<property name="city" type="string" column="city"/>
+		<property name="state" type="string" column="state"/>	
+		<property name="zipCode" type="string" column="zipCode"/>
+		<property name="country" type="string" column="country"/>
+	</component>
+
+
+				
+	<!-- each user's VO is made up of all the resources associated with their id.
+	     we map a user to these resources via the join table UserResource.  We 
+	     enable cascading so that when a user is removed, their vo will be deleted
+	     as well. -->
+<!--	 <set    name="userProjectResources"
+	 		cascade="save-update"
+	 		table="userProjectResource"
+			lazy="true"
+			inverse="false"
+			access="org.hibernate.property.DirectPropertyAccessor">
+		<key>
+			<column name="userID" not-null="true"/>
+		</key>
+
+		<one-to-many class="org.gridchem.service.model.UserProjectResource"/>
+	 </set>  
+-->
+	<!-- within each user's VO, they may be subscribed to many project.  A project is
+	 the mechanism by which su's are allocated to users for each machine.  Thus, a
+	 user will necessarily have multiple projects if they have multiple compute
+	 resource in their VO. A user can also have multiple projects on the same 
+	 compute resource, thus we map a many to many relationship via the userProject 
+	 table. -->
+	 <!--set name="projects" lazy="false" inverse="true" table="userProjects">
+	 	<key column="userID"/>
+	 	<composite-element class="org.gridchem.service.model.UserProject">
+	 		<many-to-one name="project"
+	 					class="org.gridchem.service.model.resource.Project"
+	 					column="projectID"
+	 					not-null="true"/>
+	 		<property name="userType"
+	 					column="userType"
+	 					type="org.gridchem.service.model.user.AccessType"
+	 					not-null="true"/>
+	 	</composite-element>
+	 </set-->
+	 
+<!-- We are removing all dynamic loading of sets to try to speed up the service and
+     reduce the memory footprint.
+	 <set name="userProjects"
+	 		cascade="save-update"
+			access="org.hibernate.property.DirectPropertyAccessor">
+		<key column="userID"/>
+		<one-to-many class="org.gridchem.service.model.UserProject"/>
+	 </set>
+-->	 
+		 
+	<!-- Use a standard parent/child relationship for jobs. -->
+<!--	<set    name="jobs"-->
+<!--			cascade="all"-->
+<!--			inverse="true"-->
+<!--			order-by="created DESC"-->
+<!--			lazy="true" -->
+<!--			access="org.hibernate.property.DirectPropertyAccessor">-->
+<!--		<key>-->
+<!--            <column name="userID" not-null="true"/>-->
+<!--        </key>-->
+<!--		<one-to-many class="org.gridchem.service.model.job.Job"/>	-->
+<!--		-->
+<!--		<filter name="filterDeletedJobs" condition="WHERE deleted = 0"/>-->
+<!--		<filter name="limitJobs" condition="LIMIT 0,50"/>-->
+<!--	</set>-->
+	
+	<!-- Use a standard parent/child relationship for dn. -->
+<!--	<bag    name="dn"
+			cascade="all"
+			inverse="true"
+			order-by="lastUpdated"
+			lazy="true"
+			access="org.hibernate.property.DirectPropertyAccessor">
+		<key>
+            <column name="userID" not-null="true"/>
+        </key>
+		<one-to-many class="org.gridchem.service.model.user.DN"/>
+	</bag>
+-->	
+	
+	<!-- Use a standard parent/child relationship for preferences. -->
+<!--	<set    name="preferences"
+			cascade="all"
+			inverse="true"
+			lazy="true"
+			access="org.hibernate.property.DirectPropertyAccessor">
+		<key>
+            <column name="userID"/>
+        </key>
+		<one-to-many class="org.gridchem.service.model.user.Preferences"/>
+	</set>
+-->	
+	
+	<!-- Use a standard parent/child relationship for preferences. -->
+	<!--set    name="projects"
+			cascade="all"
+			inverse="true"
+			lazy="true"
+			access="org.hibernate.property.DirectPropertyAccessor">
+		<key>
+            <column name="createdByUserID"/>
+        </key>
+		<one-to-many class="org.gridchem.service.model.resource.Project"/>
+	</set-->
+</class>
+
+<filter-def name="filterDeletedJobs"/>
+<filter-def name="limitJobs"/>
+
+</hibernate-mapping>

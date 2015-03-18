@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+<!--
+
+Mapping file for the Workflow class of the GridChem Middleware Service.
+
+Workflows are an organization table for Jobs.  Workflows exist in a 
+0-N relationship to Jobs meaning a job may have a workflow, but a 
+workflow will always have a job.
+
+We never load any GMSResources or Jobs when a User is retrieved.
+
+@author Rion Dooley < dooley [at] tacc [dot] utexas [dot] edu >
+
+-->
+<hibernate-mapping package="org.gridchem.service.model">
+
+<class name="Workflow" table="Workflows">
+	<id name="id"
+		type="long"
+		column="id"
+		unsaved-value="null"
+		access="org.hibernate.property.DirectPropertyAccessor">
+		<generator class="native"/>
+	</id>
+
+	<property name="name" type="string" column="name" not-null="true"/>
+	<property name="description" type="string" column="description"/>
+	<property name="startTime" type="java.util.Date" column="startTime"/>
+	<property name="stopTime" type="java.util.Date" column="stopTime"/>
+	<property name="status" type="job_status" column="status" not-null="true"/>
+	<property name="lastUpdated" type="java.util.Date" column="lastUpdated"/>
+	<property name="hidden" type="boolean" column="hidden" not-null="true"/>
+	<property name="deleted" type="boolean" column="deleted" not-null="true"/>
+	<property name="created" type="java.util.Date" column="created" not-null="true"/>
+	<many-to-one name="user" column="userID" class="org.gridchem.service.model.User" not-null="true"/>	 
+	
+	<!--   Use a standard parent/child relationship for jobs. --> 
+	<set    name="jobs"
+			cascade="all"
+			inverse="true"
+			order-by="jobID DESC"
+			lazy="true" 
+			access="org.hibernate.property.DirectPropertyAccessor">
+		<key>
+            <column name="workflowID" not-null="true"/>
+        </key>
+		<one-to-many class="org.gridchem.service.model.Job"/>	
+		
+		<filter name="filterDeletedJobs" condition="WHERE deleted = 0"/>
+		<filter name="limitJobs" condition="LIMIT 0,50"/>
+	</set>
+	
+</class>
+
+<filter-def name="filterDeletedWorkflows"/>
+<filter-def name="limitWorkflows"/>
+
+</hibernate-mapping>

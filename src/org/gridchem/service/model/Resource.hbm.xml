@@ -1,0 +1,166 @@
+<!DOCTYPE hibernate-mapping PUBLIC
+ "-//Hibernate/Hibernate Mapping DTD 2.0//EN"
+ "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+
+<hibernate-mapping package="org.gridchem.service.model">
+	 <class name="org.gridchem.service.model.CCGResource" 
+	 		table="Resources">
+		 <id name="id" column="resourceID" type="long">
+			 <generator class="native"/>
+		 </id>
+		 <property name="name" column="name" type="string"/>
+		 <property name="comment" column="comment" type="text"/>
+		 <property name="type" column="type" type="resource_type"/>
+		 <property name="hostname" column="hostname" type="string"/>
+		 <property name="ipAddress" column="IPAddress" type="string"/>
+	 	 <property name="created" column="created" type="java.util.Date"/>
+		 <property name="lastDownTime" column="lastDownTime" type="java.util.Date"/>
+		 <property name="lastUpdated" column="lastUpdated" type="java.util.Date"/>
+		 <property name="status" column="status" type="resource_status"/>
+		 <property name="valid" type="boolean" column="valid" not-null="true"/>
+		 <many-to-one name="site" class="org.gridchem.service.model.Site" column="siteID"/>
+		 
+		 <!-- Mapping for User association. A compute resource is associated 
+		      with a user via the UserResource table. One user may have many
+		      resources and one resource may have many users.  This many-to-
+		      many relationship is expressed via the UserResource class. -->
+		 <set    name="userResources"
+		 		table="UserResources"
+		 		cascade="save-update"
+				lazy="true"
+				inverse="true"
+				access="org.hibernate.property.DirectPropertyAccessor">
+			<key>
+				<column name="resourceID" not-null="true"/>
+			</key>
+			<many-to-many class="org.gridchem.service.model.User"
+						 column="userID"/>
+		 </set>
+		 
+		 <!-- Mapping for project resources.  Each resource can have multiple
+		      projects associated with it.  This mapping allows us to query 
+		      for all the projects associated with a resource. -->
+		 <!--set	name="projectResources"
+		 		cascade="save-update"
+				access="org.hibernate.property.DirectPropertyAccessor">
+			<key column="resourceID"/>
+	
+			<one-to-many class="org.gridchem.service.model.ProjectResource"/>
+	 	</set-->
+		
+		<joined-subclass name="org.gridchem.service.model.ComputeResource" 
+		 				table="ComputeResources" 
+		 				lazy="true" >
+			 <key column="computeResourceID"/>
+		 	 <property name="totalCpu" column="totalCPU" type="long" not-null="true"/>
+			 <property name="system" column="system" type="string" not-null="true"/>
+			 <property name="totalNodes" column="totalNodes" type="long" not-null="true"/>
+			 <property name="peakPerformance" column="peakPerformance" type="double"/>
+			 <property name="totalMemory" column="memory" type="long" not-null="true"/>
+			 <property name="totalDisk" column="diskTotalSpace" type="long" not-null="true"/>
+			 <property name="availableDisk" type="long" column="diskAvailableSpace" />
+			 <property name="scratchDirectory" column="scratchDirectoryBase" type="string" not-null="true"/>
+			 <property name="availableCpu" column="availableCPU" type="long"/>
+			 <property name="scratchDisk" column="scratchDisk" type="string"/>
+			 <property name="webSite" column="webSite" type="string"/>
+			 <property name="adminEmail" column="supportEmail" type="string"/>
+			 <property name="pflag" column="PFlag" type="string"/>
+			 <property name="scpFlag" column="SCPFlag" type="string"/>
+			 <property name="reFlag" column="reFlag" type="string"/>
+			 <property name="jobsProgramPath" column="jobsProgramPath" type="string"/>
+			 <property name="histProgramPath" column="histProgramPath" type="string"/>
+			 <property name="killProgramPath" column="killProgramPath" type="string"/>
+			 <property name="siteAcronym" column="siteAcronym" type="string"/>
+			 <property name="scheduler" type="scheduler_type" column="scheduler" not-null="true"/>
+			 <property name="lindaIsAvailable" type="boolean" column="lindaIsAvailable" not-null="true"/>			 
+
+			 <component name="load" class="org.gridchem.service.model.Load">
+				<property   name="cpu" type="long" column="CPULoad"/>
+				<property   name="memory" type="long" column="memoryLoad"/>
+				<property   name="disk" type="long" column="diskLoad"/>
+				<property   name="queue" type="long" column="queueLoad"/>
+				<property   name="jobsRunning" type="long" column="jobsRunning"/>
+				<property   name="jobsQueued" type="long" column="jobsQueued"/>
+				<property   name="jobsOther" type="long" column="jobsOther"/>
+			 </component>
+			 
+			 <!-- Mapping for SoftwareInstallation association. A software install-
+			      ation is the physical realization of an application on a particular
+			      compute resource.  This is a one-to-many relationship with the 
+			      SoftwareInstallation table.  We choose this approach rather than 
+			      viewing a VO as essentially the softwareInstallation table, which 
+			      would represent hardware and software resources in order to enable
+			      software, compute, network, and storage resources to all become 
+			      subclasses of a general GMSResource class in the future and still 
+			      maintain the UserResource abstraction.-->
+			 <set  name="softwareInstallations"
+			 		lazy="true"
+					inverse="true">
+				<key column="computeResourceID"/>
+				<one-to-many class="org.gridchem.service.model.SoftwareInstallation"/>
+				<filter name="softwareFilter" condition="valid = 1"/>
+			 </set>
+			 
+			
+			 <!-- Mapping for Queue association. One resource may have many queues, but
+			      the converse is not true, thus compute resource to queue is 
+			      one-to-many-->
+			 <set    name="queues"
+					cascade="all"
+					lazy="false"
+					inverse="true">
+				<key column="computeResourceID" />
+				<one-to-many class="org.gridchem.service.model.Queue"/>
+			 </set>		
+		 </joined-subclass>
+		 <joined-subclass name="org.gridchem.service.model.NetworkResource" 
+		 				table="NetworkResources" 
+		 				lazy="true">
+			 <key column="networkResourceID"/>
+		 	 <property name="mask" column="mask" type="long"/>
+			 <property name="networkName" column="networkName" type="string"/>
+			 <property name="bandwidth" column="bandwidth" type="float"/>
+			 <property name="latency" column="latency" type="float"/>
+			 <property name="bwMaeForecast" column="bwMaeForecast" type="float"/>
+			 <property name="bwMaeError" column="bwMaeError" type="float"/>
+			 <property name="bwMseForecast" column="bwMseForecast" type="float"/>
+			 <property name="bwMseError" column="bwMseError" type="float"/> 
+			 <property name="ltMaeForecast" column="ltMaeForecast" type="float"/>
+			 <property name="ltMaeError" column="ltMaeError" type="float"/>
+			 <property name="ltMseForecast" column="ltMseForecast" type="float"/>
+			 <property name="ltMseError" column="ltMseError" type="float"/>
+			 <many-to-one name="toResource" column="toResourceID" class="org.gridchem.service.model.CCGResource"/>
+			 <many-to-one name="fromResource" column="fromResourceID" class="org.gridchem.service.model.CCGResource"/>
+			 
+		 </joined-subclass>
+		 <joined-subclass name="org.gridchem.service.model.VisualizationResource" 
+		 				table="VisualizationResources" 
+		 				lazy="true">
+			 <key column="visualizationResourceID"/>
+			 <property name="numNodes" column="numNodes" type="long"/>
+              <property name="numProcessors" column="numProcessors" type="long"/>
+              <property name="peakPerformance" column="peakPerformance" type="float"/>
+              <property name="memory" column="memory" type="long"/>
+              <property name="scratchDisk" column="scratchDisk" type="string"/>
+              <property name="peakPolygons" column="peakPolygons" type="long"/>
+              <property name="graphicsHw" column="graphicsHW" type="string"/>
+			 
+		 </joined-subclass>
+		 <joined-subclass name="org.gridchem.service.model.StorageResource" 
+		 				table="StorageResources" 
+		 				lazy="true">
+			 <key column="storageResourceID"/>
+			 <property name="quota" column="quota" type="double"/>
+			 <property name="total" column="diskTotalSpace" type="double"/>
+			 <property name="free" column="diskFreeSpace" type="double"/>
+			 <property name="seekTime" column="diskSeekTime" type="double"/>		 
+			 <property name="rpm" column="diskRpm" type="double"/>
+			 <property name="protocol" column="access" type="storage_access_type" not-null="true"/>
+			 <property name="purge" column="purgeData" type="boolean" not-null="true"/>
+			 <property name="backup" column="backup" type="boolean" not-null="true"/>
+			 <property name="website" column="webSite" type="string"/>
+			 
+		 </joined-subclass>
+	 </class>
+	 <filter-def name="softwareFilter"/>
+ </hibernate-mapping>

@@ -1,0 +1,86 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+<!--
+
+Mapping file for the Project class of the GridChem Middleware Service.
+
+A project is the unique allotment of work to one or more users. A project 
+will provide access to one or more resources.  A project entity will record
+exactly how much was awarded to the PI and how much has been used by them 
+or their colleagues.  Individual tracking of such things are recorded in 
+the various join tables.
+
+We never load any GMSResources or Jobs when a User is retrieved.
+
+@author Rion Dooley < dooley [at] cct [dot] lsu [dot] edu >
+
+-->
+<hibernate-mapping package="org.gridchem.service.model">
+
+<class name="Project"
+	   table="Projects"
+	   lazy="true">
+
+	<id name="id"
+		type="long"
+		column="projectId"
+		unsaved-value="null">
+		<generator class="native"/>
+	</id>
+
+	<property name="name" type="string" column="projectName"/>
+	<property name="type" column="projectType" type="access_type"/>
+	<property name="description" type="text" column="projectDescription"/>
+	<property name="comment" type="text" column="comment"/>
+	<property name="institutionType" column="sponsorClass" type="sponsor_type"/>
+	<property name="pi" type="string" column="sponsorName"/>
+	<property name="status" type="project_status" column="projectStatus"/>
+	<property name="startDate" type="java.util.Date" column="projectStart"/>
+	<property name="endDate" type="java.util.Date" column="projectEnd"/>
+	<property name="lastUpdated" type="java.util.Date" column="lastUpdated"/>
+	<property name="theDefault" type="boolean" column="isDefault"/>
+
+	<component name="usage" class="org.gridchem.service.model.Usage">
+		<property name="allocated" type="double" column="SUsAwarded" />
+		<!-- property name="balance" type="double" column="SUsAwarded" /-->
+		<property name="used" type="double" column="SUsUsed" />
+	</component>
+	
+	<property name="extProjectHostList" type="text" column="extProjectHostList"/>						
+	<property name="susPerJob" type="int" column="SUsPerJob"/>	
+	<property name="memoryMBPerCPU" type="int" column="memoryMBPerCPU"/>
+	<property name="diskGBPerJob" type="int" column="diskGBPerJob"/>
+	<property name="cpusPerJob" type="int" column="CPUsPerJob"/>
+	<property name="appsRequested" type="text" column="appsRequested"/>
+	<property name="created" type="java.util.Date" column="created"/>
+	
+	<!-- a single user may have multiple projects, so we create a many-to-one 
+		mapping. the mapping is a composite key of user, project, resource, 
+		and login name.-->
+	<!--<set name="userProjectResources"
+	 		cascade="save-update"
+			access="org.hibernate.property.DirectPropertyAccessor">
+		<key>
+			<column name="projectID" not-null="true"/>
+		</key>
+
+		<one-to-many class="org.gridchem.service.model.UserProjectResource"/>
+	 </set>  
+	
+	--><!-- within each user's VO, they may be subscribed to many project.  A project is
+	 the mechanism by which su's are allocated to users for each machine.  Thus, a
+	 user will necessarily have multiple projects if they have multiple compute
+	 resource in their VO. A user can also have multiple projects on the same 
+	 compute resource, thus we map a many to many relationship via the userProject 
+	 table. -->
+	 
+	 <!--set name="projectResources"
+	 		cascade="save-update"
+			access="org.hibernate.property.DirectPropertyAccessor">
+	 	<key column="projectId"/>
+	 	<one-to-many class="org.gridchem.service.model.ProjectResource"/>
+	 </set-->
+</class>
+
+</hibernate-mapping>

@@ -1,0 +1,30 @@
+/AdministrationService.java/1.1/Mon Dec 21 18:39:28 2009//
+/FileService.java/1.1/Mon Dec 21 18:39:28 2009//
+/JobService.java/1.1/Mon Dec 21 18:39:28 2009//
+/NotificationService.java/1.1/Mon Dec 21 18:39:28 2009//
+/ProjectService.java/1.1/Mon Dec 21 18:39:28 2009//
+/ResourceService.java/1.1/Mon Dec 21 18:39:28 2009//
+/SessionService.java/1.1/Mon Dec 21 18:39:28 2009//
+/SoftwareService.java/1.1/Mon Dec 21 18:39:28 2009//
+/TriggerService.java/1.1/Mon Dec 21 18:39:28 2009//
+/UserService.java/1.1/Mon Dec 21 18:39:28 2009//
+D/authentication////
+D/beans////
+D/dao////
+D/exceptions////
+D/file////
+D/impl////
+D/job////
+D/model////
+D/notification////
+D/persistence////
+D/project////
+D/provider////
+D/session////
+D/stub////
+D/sync////
+D/test////
+D/user////
+D/util////
+D/workflow////
+D/wsclients////

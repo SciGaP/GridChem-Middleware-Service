@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+<!--
+
+Mapping file for the Job class of the GridChem Middleware Service. A job is a unit of work
+performed on behalf of a User.  Jobs have input files, output files, and correspond to a 
+specific software installation.  All jobs have a charge corresponding to the amount of 
+cpu time used among other things.  Charges are made against a particular UserProject.
+
+We never load any GMSResources or Users when a Job is retrieved.
+
+@author Rion Dooley < dooley [at] cct [dot] lsu [dot] edu >
+
+-->
+<hibernate-mapping package="org.gridchem.service.model">
+
+<class name="Job" table="Jobs" lazy="false">
+
+	<id name="id"
+		type="long"
+		column="jobID"
+		unsaved-value="null"
+		access="org.hibernate.property.DirectPropertyAccessor">
+		<generator class="native"/>
+	</id>
+	
+	<!-- We don't change the username, so map it with update="false".
+		 This is an immutable property, it is also unique. -->
+	<property name="localId" type="string" column="localJobID"/>
+	<!--property name="grmsJobID" type="string" column="grmsJobID"/-->
+	<property name="name" type="string" column="name" not-null="true"/>
+	<property name="experimentName" type="string" column="researchProjectName" not-null="true"/>
+	<property name="workDir" type="string" column="scratchDir"/>
+	<property name="requestedCpus" type="long" column="requestedCPUs" not-null="true"/>
+	<property name="requestedCpuTime" type="java.util.Calendar" column="requestedCpuTime" not-null="true"/>
+	<property name="created" type="java.util.Date" column="created"/>
+	<property name="cost" type="double" column="cost"/>
+	<property name="allocationName" type="string" column="allocationName" not-null="true"/>
+	<property name="startTime" type="java.util.Date" column="startTime"/>
+	<property name="stopTime" type="java.util.Date" column="stopTime"/>
+	<property name="status" type="job_status" column="status" not-null="true"/>
+	<property name="usedCpus" type="long" column="usedCPUs"/>
+	<property name="usedCpuTime" type="long" column="usedCPUTime"/>
+	<property name="usedWallTime" type="long" column="usedWallTime"/>
+	<property name="lastUpdated" type="java.util.Date" column="lastUpdated" not-null="true"/>
+	<property name="metaData" type="text" column="metaData"/>
+	<property name="hidden" type="boolean" column="hidden" not-null="true"/>
+	<property name="deleted" type="boolean" column="deleted" not-null="true"/>
+	<many-to-one name="workflow" column="workflowID" class="org.gridchem.service.model.Workflow"/>
+	<many-to-one name="project" column="projectID" class="org.gridchem.service.model.Project" not-null="true"/>
+  	<many-to-one name="user" column="userID" class="org.gridchem.service.model.User" not-null="true"/>
+  	<many-to-one name="queue" column="queueID" class="org.gridchem.service.model.Queue" not-null="true"/>
+	<many-to-one name="software" column="softwareResourceID" class="org.gridchem.service.model.Software" not-null="true"/>
+	<many-to-one name="system" column="computeResourceID" class="org.gridchem.service.model.ComputeResource" not-null="true"/>
+	<many-to-one name="storage" column="storageResourceID" class="org.gridchem.service.model.StorageResource" not-null="true"/>
+	
+	<!-- Mapping for job files association. >
+	<set  name="inputFiles"
+			cascade="false"
+			lazy="true"
+			inverse="true"
+			access="org.hibernate.property.DirectPropertyAccessor">
+		<key>
+			<column name="jobid" not-null="false"/>
+		</key>
+		<one-to-many class="CCG_File"/>
+	</set-->
+
+	<!-- Mapping for job files association. -->
+	<!--set  name="outputFiles"
+			cascade="none"
+			lazy="true"
+			inverse="true"
+			access="org.hibernate.property.DirectPropertyAccessor">
+		<key>
+			<column name="jobID" not-null="false"/>
+		</key>
+		<one-to-many class="org.gridchem.service.model.file.LogicalFile"/>
+	</-->
+	
+</class>
+
+</hibernate-mapping>

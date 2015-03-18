@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<serviceGroup>
+    <service name="AdministrationService">
+        <parameter name="ServiceClass">org.gridchem.service.impl.AdministrationServiceImpl</parameter>
+        
+        <messageReceivers>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
+    	</messageReceivers>
+    </service>
+    <!-- <service name="FileService" scope="application">
+        <parameter name="ServiceClass">org.gridchem.service.impl.FileServiceImpl</parameter>
+        <parameter name="enableSwA">true</parameter>
+        <messageReceivers>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
+    	</messageReceivers>
+    </service>-->
+    <service name="FileService" scope="application">
+       <parameter name="ServiceClass">org.gridchem.service.impl.FileServiceImpl</parameter>
+       <parameter name="enableMTOM">true</parameter>
+       <messageReceivers>
+           <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
+           <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
+       </messageReceivers>
+       <operation name="getRemoteFile">
+            <actionMapping>urn:getRemoteFile</actionMapping>
+        </operation>
+        <operation name="putCachedFile">
+            <actionMapping>urn:putCachedFile</actionMapping>
+        </operation>
+	</service>
+    
+    <service name="JobService">
+        <parameter name="ServiceClass">org.gridchem.service.impl.JobServiceImpl</parameter>
+        <messageReceivers>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
+    	</messageReceivers>
+        <operation name="hide"> 
+		<messageReceiver 
+			class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/> 
+    	</operation>
+    </service>
+    <service name="NotificationService">
+        <parameter name="ServiceClass">org.gridchem.service.impl.NotificationServiceImpl</parameter>
+        
+        <messageReceivers>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
+    	</messageReceivers>
+    </service>
+    <service name="ProjectService">
+        <parameter name="ServiceClass">org.gridchem.service.impl.ProjectServiceImpl</parameter>
+        
+        <messageReceivers>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
+    	</messageReceivers>
+    </service>
+    <service name="ResourceService">
+        <parameter name="ServiceClass">org.gridchem.service.impl.ResourceServiceImpl</parameter>
+        
+        <messageReceivers>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
+    	</messageReceivers>
+    </service>
+    <service name="SessionService">
+        <parameter name="ServiceClass">org.gridchem.service.impl.SessionServiceImpl</parameter>
+        
+        <messageReceivers>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
+    	</messageReceivers>
+    </service>
+    <service name="SoftwareService">
+        <parameter name="ServiceClass">org.gridchem.service.impl.SoftwareServiceImpl</parameter>
+        
+        <messageReceivers>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
+    	</messageReceivers>
+    </service>
+    <service name="TriggerService">
+        <parameter name="ServiceClass">org.gridchem.service.impl.TriggerServiceImpl</parameter>
+        
+        <messageReceivers>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
+    	</messageReceivers>
+    </service>
+        <service name="UserService">
+        <parameter name="ServiceClass">org.gridchem.service.impl.UserServiceImpl</parameter>
+        
+        <messageReceivers>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-only" class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver"/>
+	        <messageReceiver mep="http://www.w3.org/ns/wsdl/in-out" class="org.apache.axis2.rpc.receivers.RPCMessageReceiver"/>
+    	</messageReceivers>
+    </service>
+</serviceGroup> 

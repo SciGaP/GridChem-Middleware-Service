@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions targetNamespace="urn:edu.ucsb.cs" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="urn:edu.ucsb.cs" xmlns:intf="urn:edu.ucsb.cs" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--WSDL created by Apache Axis version: 1.4
+Built on Apr 22, 2006 (06:55:48 PDT)-->
+
+   <wsdl:message name="qbetsPredictDeadlineRequest">
+
+      <wsdl:part name="in0" type="xsd:long"/>
+
+      <wsdl:part name="in1" type="soapenc:string"/>
+
+      <wsdl:part name="in2" type="soapenc:string"/>
+
+      <wsdl:part name="in3" type="xsd:int"/>
+
+      <wsdl:part name="in4" type="xsd:long"/>
+
+      <wsdl:part name="in5" type="xsd:float"/>
+
+      <wsdl:part name="in6" type="xsd:long"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="qbetsPredictBoundResponse">
+
+      <wsdl:part name="qbetsPredictBoundReturn" type="soapenc:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="nwsGetCliqueForecastsRequest">
+
+      <wsdl:part name="in0" type="soapenc:string"/>
+
+      <wsdl:part name="in1" type="soapenc:string"/>
+
+      <wsdl:part name="in2" type="soapenc:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="qbetsPredictBoundRequest">
+
+      <wsdl:part name="in0" type="xsd:long"/>
+
+      <wsdl:part name="in1" type="soapenc:string"/>
+
+      <wsdl:part name="in2" type="soapenc:string"/>
+
+      <wsdl:part name="in3" type="xsd:int"/>
+
+      <wsdl:part name="in4" type="xsd:long"/>
+
+      <wsdl:part name="in5" type="xsd:float"/>
+
+      <wsdl:part name="in6" type="xsd:float"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="nwsGetCliqueForecastsResponse">
+
+      <wsdl:part name="nwsGetCliqueForecastsReturn" type="soapenc:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="qbetsPredictDeadlineResponse">
+
+      <wsdl:part name="qbetsPredictDeadlineReturn" type="soapenc:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="qbetsGetMachinesResponse">
+
+      <wsdl:part name="qbetsGetMachinesReturn" type="soapenc:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="qbetsGetMachinesRequest">
+
+   </wsdl:message>
+
+   <wsdl:portType name="Nws">
+
+      <wsdl:operation name="qbetsGetMachines">
+
+         <wsdl:input message="impl:qbetsGetMachinesRequest" name="qbetsGetMachinesRequest"/>
+
+         <wsdl:output message="impl:qbetsGetMachinesResponse" name="qbetsGetMachinesResponse"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="qbetsPredictBound" parameterOrder="in0 in1 in2 in3 in4 in5 in6">
+
+         <wsdl:input message="impl:qbetsPredictBoundRequest" name="qbetsPredictBoundRequest"/>
+
+         <wsdl:output message="impl:qbetsPredictBoundResponse" name="qbetsPredictBoundResponse"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="qbetsPredictDeadline" parameterOrder="in0 in1 in2 in3 in4 in5 in6">
+
+         <wsdl:input message="impl:qbetsPredictDeadlineRequest" name="qbetsPredictDeadlineRequest"/>
+
+         <wsdl:output message="impl:qbetsPredictDeadlineResponse" name="qbetsPredictDeadlineResponse"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="nwsGetCliqueForecasts" parameterOrder="in0 in1 in2">
+
+         <wsdl:input message="impl:nwsGetCliqueForecastsRequest" name="nwsGetCliqueForecastsRequest"/>
+
+         <wsdl:output message="impl:nwsGetCliqueForecastsResponse" name="nwsGetCliqueForecastsResponse"/>
+
+      </wsdl:operation>
+
+   </wsdl:portType>
+
+   <wsdl:binding name="NwsSoapBinding" type="impl:Nws">
+
+      <wsdlsoap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+
+      <wsdl:operation name="qbetsGetMachines">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="qbetsGetMachinesRequest">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="urn:edu.ucsb.cs" use="encoded"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="qbetsGetMachinesResponse">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="urn:edu.ucsb.cs" use="encoded"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="qbetsPredictBound">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="qbetsPredictBoundRequest">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="urn:edu.ucsb.cs" use="encoded"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="qbetsPredictBoundResponse">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="urn:edu.ucsb.cs" use="encoded"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="qbetsPredictDeadline">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="qbetsPredictDeadlineRequest">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="urn:edu.ucsb.cs" use="encoded"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="qbetsPredictDeadlineResponse">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="urn:edu.ucsb.cs" use="encoded"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="nwsGetCliqueForecasts">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="nwsGetCliqueForecastsRequest">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="urn:edu.ucsb.cs" use="encoded"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="nwsGetCliqueForecastsResponse">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="urn:edu.ucsb.cs" use="encoded"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:binding>
+
+   <wsdl:service name="NwsService">
+
+      <wsdl:port binding="impl:NwsSoapBinding" name="Nws">
+
+         <wsdlsoap:address location="http://nws.cs.ucsb.edu:8180/axis/services/Nws"/>
+
+      </wsdl:port>
+
+   </wsdl:service>
+
+</wsdl:definitions>

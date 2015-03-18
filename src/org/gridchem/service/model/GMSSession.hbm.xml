@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+<!--
+
+Mapping file for the GMSSession class of the GridChem Middleware Service. A session
+is an instance of a stateful timely interaction between a client and the service.
+Sessions are identified by a unique key and contain information on the user and
+credential loade for that session.
+
+We never load any GMSResources or Users when a Job is retrieved.
+
+@author Rion Dooley < dooley [at] cct [dot] lsu [dot] edu >
+
+-->
+<hibernate-mapping package="org.gridchem.service.model">
+
+<class name="GMSSession" table="Sessions" lazy="true">
+
+	<id name="id"
+		type="long"
+		column="id"
+		unsaved-value="null"
+		access="org.hibernate.property.DirectPropertyAccessor">
+		<generator class="native"/>
+	</id>
+	
+	<property name="token" type="string" column="token" not-null="true"/>
+	<property name="destroyed" type="java.util.Calendar" column="destroyed"/>
+	<property name="expires" type="java.util.Calendar" column="expires" not-null="true"/>
+	<property name="created" type="java.util.Calendar" column="created" not-null="true"/>
+	<property name="userId" type="long" column="userId" not-null="true"/>
+	<property name="projectId" type="long" column="projectId"/>
+	<property name="type" type="access_type" column="type" not-null="true"/>
+	<property name="proxy" type="text" column="proxy"/>
+	
+</class>
+
+</hibernate-mapping>

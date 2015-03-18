@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+<!--
+
+Mapping file for the Site class of the GridChem Middleware Service.
+
+A Site is a physical entity representing the governing body regulating and 
+administering a machine.  A site traditionally will be a HPC center such as 
+TACC or CCT, though it does not have to be.
+
+@author Rion Dooley < dooley [at] cct [dot] lsu [dot] edu >
+
+-->
+<hibernate-mapping package="org.gridchem.service.model">
+
+<class name="org.gridchem.service.model.Site" table="Sites" lazy="true">
+
+	<id name="id"
+		type="long"
+		column="siteID">
+		<generator class="native"/>
+	</id>
+
+	<property name="name" type="string" column="name"/>
+	<property name="description" type="text" column="description"/>
+	<property name="acronym" type="string" column="acronym"/>
+	<property name="lastUpdated" type="date" column="lastUpdated"/>
+	
+	<set  name="resources"
+	 		lazy="true"
+			inverse="true">
+		<key column="siteID"/>
+		<one-to-many class="org.gridchem.service.model.CCGResource"/>
+	</set>		
+	
+</class>
+
+</hibernate-mapping>

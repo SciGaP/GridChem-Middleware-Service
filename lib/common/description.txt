@@ -1,0 +1,2 @@
+log4j-1.2.8.jar: This jar file is used by SGGC to write log information;
+cog-jglobus.jar: This jar file is used to do transferring;

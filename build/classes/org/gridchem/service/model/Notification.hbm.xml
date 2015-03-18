@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+<!--
+
+Mapping file for the Notification class of the GridChem Middleware Service.
+
+A Notification is a message sent to the user informing them of a change in the
+status of their job.  The deliver mechanism is determined by the userType field.
+
+@author Rion Dooley < dooley [at] cct [dot] lsu [dot] edu >
+
+-->
+<hibernate-mapping package="org.gridchem.service.model">
+
+<class name="org.gridchem.service.model.Notification" 
+	   table="JobNotifications" 
+	   lazy="true">
+
+	<id name="id"
+		type="long"
+		column="id"
+		unsaved-value="null"
+		access="org.hibernate.property.DirectPropertyAccessor">
+		<generator class="native"/>
+	</id>
+	
+	<!--composite-id name="id"
+				 class="Notification$Id">
+
+        <key-many-to-one name="job" class="org.gridchem.service.model.Job">
+        			<column name="jobID"/>
+		</key-many-to-one>        			
+					
+        <key-property name="type"
+                      column="type"
+                      access="field"/>
+                      
+		<key-property name="status"
+	        			column="status"
+					access="field"/>
+	</composite-id-->
+
+	<many-to-one name="job" 
+				column="jobID"
+				class="org.gridchem.service.model.Job" />
+	
+	<property name="type" column="type" type="notification_type" not-null="true" />
+	<property name="status" column="status" type="job_status" not-null="true" />
+	<property name="subject" type="string" column="subject"/>
+	<property name="message" type="string" column="message"/>
+	<property name="created" type="java.util.Date" column="created" not-null="true"/>
+	<property name="lastUpdated" type="java.util.Date" column="lastUpdated" not-null="true"/>
+	<property name="delivered" type="boolean" column="delivered" not-null="true"/>
+				
+</class>
+
+</hibernate-mapping>

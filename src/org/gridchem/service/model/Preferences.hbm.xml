@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+<!--
+
+Mapping file for the preference class of the GridChem Middleware Service.
+
+A preferences is a set of attributes corresponding to the user on a particular machine. 
+Preferences are used mostly for internal purposes by GridChem.
+
+@author Rion Dooley < dooley [at] cct [dot] lsu [dot] edu >
+
+-->
+<hibernate-mapping package="org.gridchem.service.model">
+
+<class name="Preferences" table="Preferences" lazy="false">
+	<id name="id"
+		type="long"
+		column="ID"
+		unsaved-value="null"
+		access="org.hibernate.property.DirectPropertyAccessor">
+		<generator class="native"/>
+	</id>
+	
+	<property name="preferences" type="text" column="preferences"/>
+	<property name="lastUpdated" type="date" column="lastUpdated"/>
+	<property name="created" type="date" column="created"/>
+	
+	<many-to-one name="user" class="org.gridchem.service.model.User" column="userID"/>
+	
+</class>
+
+</hibernate-mapping>

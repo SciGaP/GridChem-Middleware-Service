@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping SYSTEM
+			"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+
+<!--
+Various Hibernate value types for GMS_WS.
+Make sure this mapping file is loaded before the others.
+
+@author Rion Dooley dooley [at] tacc [dot] utexas [dot] edu.
+-->
+
+<hibernate-mapping>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="research_status">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.UserClassificationType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="admin_type">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.UserPermissionType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="access_type">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.AccessType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="project_status">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.ProjectStatusType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="queue_status">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.QueueStatusType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="resource_status">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.ResourceStatusType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="resource_type">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.ResourceType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="sponsor_type">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.InstitutionType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="job_status">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.JobStatusType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="scheduler_type">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.BatchSchedulerType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="project_status_type">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.ProjectStatusType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="storage_access_type">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.TransferProtocolType</param>
+</typedef>
+
+<typedef class="org.gridchem.service.model.enumeration.StringEnumUserType" name="notification_type">
+    <param name="enumClassname">org.gridchem.service.model.enumeration.NotificationType</param>
+</typedef>
+</hibernate-mapping>

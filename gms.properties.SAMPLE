@@ -1,0 +1,121 @@
+############################################################
+#
+# Settings for authenticating to AIM to send IM notifications
+#
+# These properties are usec, but do
+# not generally work.  Notification will be performed through
+# the scheduler when it is deployed.
+#
+############################################################
+
+im.handle=
+im.password=
+jaim.username=
+jaim.password=
+
+############################################################
+#
+# Settings for authenticating to SMTP server to send 
+#
+# email notifications.  These properties are usec, but do
+# not generally work.  Notification will be performed through
+# the scheduler when it is deployed.
+#
+############################################################
+
+mail.smtps.auth=true
+mail.smtps.user=<username>
+mail.smtps.passwd=<password>
+mail.smtps.host=smtp.gmail.com
+
+############################################################
+#
+# Settings for authenticating to Twitter to send Tweets
+#
+# Tweets are sent on resource status changes and job 
+# submissions and updates.
+#
+############################################################
+
+twitter.user=<username>
+twitter.passwd=<password>
+
+############################################################
+#
+# Settings for running junit tests
+#
+# Values should contain username and password of valid CCG
+# users.  If the values are not valid, the tests will fail.
+#
+############################################################
+
+junit.username=
+junit.password=
+junit.myproxyUsername=
+junit.myproxyPassword=
+
+# this is mainly used for preferences and can be given any
+# arbitrary value
+junit.macaddress=11111111
+
+# valid values are 'community' and 'external'
+junit.accesstype=community
+
+# use the actual name of the resource from the database
+junit.computeresource=SuperMike
+
+test.job.hostname=
+test.job.localId=
+
+############################################################
+#
+# Settings for supporting servers
+#
+# All values should be the full URL to the desired service
+# ex. portal.gridchem.org:8080/gpir/webservices/GPIRQuery
+#
+############################################################
+
+cgi.server=
+gpir.server=
+myproxy.server=
+myproxy.port=
+mss.server=
+grms.server=
+gms.dn=
+inca.server=
+iis.server=
+kit.server=
+
+############################################################
+#
+# Settings for file system interaction
+# 
+# File system settings for supporting and intermediate files
+# These paths should be absolute paths.
+#
+############################################################
+
+proxy.dir=/tmp
+home.dir=/tmp
+vo.name=
+grms.dn=
+
+############################################################
+#
+# Service notification and performance settings
+#
+# All refresh rates are in minutes.  Debugging and logging
+# are binary properties. Any value for these properties will
+# enable debugging/verbose output.
+# The number of jobs returned when a user logs in will directly
+# affect the performance of the service.
+#
+############################################################
+
+api.key=
+refresh.rate=1
+job.notification.rate=1
+log.debug=true
+log.verbose=true
+max.jobs.returned=50

@@ -1,0 +1,1651 @@
+<<<<<<< SubmitTask.java
+/*Copyright (c) 2004,University of Illinois at Urbana-Champaign.  All rights reserved.
+ * 
+ * Created on Jun 26, 2006
+ * 
+ * Developed by: CCT, Center for Computation and Technology, 
+ * 				NCSA, University of Illinois at Urbana-Champaign
+ * 				OSC, Ohio Supercomputing Center
+ * 				TACC, Texas Advanced Computing Center
+ * 				UKy, University of Kentucky
+ * 
+ * https://www.gridchem.org/
+ * 
+ * Permission is hereby granted, free of charge, to any person 
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal with the Software without 
+ * restriction, including without limitation the rights to use, 
+ * copy, modify, merge, publish, distribute, sublicense, and/or 
+ * sell copies of the Software, and to permit persons to whom 
+ * the Software is furnished to do so, subject to the following conditions:
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimers.
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimers in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the names of Chemistry and Computational Biology Group , NCSA, 
+ *    University of Illinois at Urbana-Champaign, nor the names of its contributors 
+ *    may be used to endorse or promote products derived from this Software without 
+ *    specific prior written permission.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF 
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  
+ * IN NO EVENT SHALL THE CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, 
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+ * DEALINGS WITH THE SOFTWARE.
+*/
+
+package org.gridchem.service.job.task;
+
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.util.Calendar;
+
+import org.apache.log4j.Logger;
+import org.gridchem.service.beans.LogicalFileBean;
+import org.gridchem.service.beans.JobBean;
+import org.gridchem.service.beans.ProjectBean;
+import org.gridchem.service.beans.QueueBean;
+import org.gridchem.service.dao.BlackListDao;
+import org.gridchem.service.dao.DaoFactory;
+import org.gridchem.service.dao.JobDao;
+import org.gridchem.service.dao.LogicalFileDao;
+import org.gridchem.service.exceptions.InfrastructureException;
+import org.gridchem.service.exceptions.JobException;
+import org.gridchem.service.exceptions.JobSchedulingException;
+import org.gridchem.service.exceptions.JobSubmissionException;
+import org.gridchem.service.exceptions.PermissionException;
+import org.gridchem.service.exceptions.ProjectException;
+import org.gridchem.service.model.GMSSession;
+import org.gridchem.service.model.Job;
+import org.gridchem.service.model.LogicalFile;
+import org.gridchem.service.model.enumeration.AccessType;
+import org.gridchem.service.model.enumeration.JobStatusType;
+import org.gridchem.service.model.enumeration.ProjectStatusType;
+import org.gridchem.service.util.ServiceUtil;
+import org.gridchem.service.util.Settings;
+import org.hibernate.ObjectNotFoundException;
+
+/**
+ * This is a quick and dirty job submission class.  It falls back on the existing
+ * cgi scripts to actually submit the jobs.  Jobs are passed in as DTO's, the jobs 
+ * are parsed, a job object created, then submitted if everything goes well.  Once
+ * the job is successfully submitted, the job object is inserted into the db by the
+ * cgi scripts and the service will update it's resource properties to reflect the
+ * new job.
+ * 
+ * @author Rion Dooley < dooley [at] tacc [dot] utexas [dot] edu >
+ *
+ */
+@SuppressWarnings("unused")
+public class SubmitTask extends JobTaskImpl implements JobTask {
+    public static Logger log = Logger.getLogger(SubmitTask.class.getName());
+    
+    private boolean jobSubmitted = false;
+    private boolean ccgJobIDResolved = false;
+    private boolean diskFull = false;
+    private boolean validProject = true; 
+    private boolean gsisshEnabled = true;
+    
+    public SubmitTask(GMSSession session, Job job) {
+        super(session, job);
+        
+    }
+    
+    public SubmitTask(GMSSession session, JobBean jobDTO, boolean notifyUser) {
+        super(session, jobDTO, notifyUser);
+    }
+    
+    /**
+     * Physically submit the job for execution
+     * 
+     * @throws JobSubmissionException
+     */
+    public Job execute() throws JobException{
+        
+        try {
+            
+            validate();
+            
+            submit();
+            
+            return job;
+        } catch (PermissionException e) {
+        	throw e;
+        } catch (JobSchedulingException e) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+            e.setErrorDescription(job.getErrorDescription());
+            log.error(e);
+//            e.printStackTrace();
+            throw e;
+        } catch (JobSubmissionException e) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+//            e.printStackTrace();
+            throw e;
+        } catch (ObjectNotFoundException e) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+            JobSchedulingException je = new JobSchedulingException("Job submitted successfully, " + 
+                    "however there was an error saving the job record. The job " +
+                    "will run, however notification will be disabled.\n");
+            je.setErrorDescription(job.getErrorDescription());
+            throw je;
+        } catch (InfrastructureException e) {
+            // send an email to the GMS admin telling of the lost job record so it can be 
+            // manually inserted into the db.
+            throw new JobSubmissionException("Job submitted successfully, " + 
+                    "however there was an error saving the job record.",e);
+        } catch (Exception e) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+            JobSchedulingException je = 
+                new JobSchedulingException("Job submission failed.", e);
+            je.setErrorDescription(job.getErrorDescription());
+            log.error(e);
+            throw je;
+        }
+    }
+    
+    /**
+     * Make sure the job parameters are valid before submission.  This includes
+     * checking user balances, submit resources, time, cpu's, etc.
+     * 
+     * @throws Exception
+     */
+    public void validate() throws Exception {
+        if (job == null) 
+            throw new JobException("No job specified for submission.");
+        
+        if (!ServiceUtil.isValid(job.getRequestedCpuTime())) {
+            throw new JobException("Job submission failed due to missing requested CPU time!");
+        }
+        
+        if (!ServiceUtil.isValid(job.getName())) {
+            throw new JobException("Job submission failed due to missing job name!");
+        }
+        
+        if (!ServiceUtil.isValid(job.getExperimentName())) {
+            throw new JobException("Job submission failed due to missing research project name!");
+        }
+        
+        if (!ServiceUtil.isValid(job.getRequestedCpus())) {
+            throw new JobException("Job submission failed due to missing requested CPUs!");
+        }
+        
+        // if no resource is selected, then pick one for the user using the
+        // selection algorithm in grms and populate the resource related
+        // fields with appropriate matching values.
+        if(job.getSystem() != null) {
+//            System.out.println("No compute resource selected, picking one from the list of available resources...");
+//            JobScheduler.selectResource(job);
+//            System.out.println("Selected to run job on " + job.getSystemName());
+//            job.setScratchDir(job.getSystemName().getScratchDirectory());
+//            System.out.println("Scratch dir " + job.getWorkDir());
+//            // find the specified queue or use the first matching queue.
+//            // select the first queue that can support the job description
+//            for(Queue q: job.getSystemName().getQueues()) {
+//                if (q.getMaxCpus() >= job.getRequestedCpus() && 
+//                        q.getCpuTimeLimit().after(job.getRequestedCpuTime())) {
+//                    job.setQueue(q);
+//                }
+//            }
+//            
+//            // make sure a queue was found
+//            if (job.getQueue() == null) {
+//                throw new JobException("No queue found to support the given job description.");
+//            }
+            
+            System.out.println("Selected queue " + job.getQueue().getName());
+            
+        } 
+        
+        if (!BlackListDao.userHasAccessToSoftware(session.getUserId(), job.getSoftware().getName())) {
+        	throw new PermissionException("User is restricted from using this software.");
+        }
+        if (job.getQueue() == null) {
+        	throw new JobException("No queue found to support the given job description.");
+        }
+        
+        if (!ServiceUtil.isValid(job.getAllocationName())) {
+            throw new JobException("Job submission failed due to missing allocation name!");
+        } 
+        /*else if (!DaoFactory.getProjectDao(session).isAllocationValid(job.getProject().getId(),job.getAllocationName())) {
+        	throw new ProjectException("Project" + 
+            " is not an active project!");
+        }*/
+        
+        if (job.getProject() == null) {
+            throw new JobException("Job submission failed due to missing project resource!");
+        }
+        
+        ProjectBean projectBean = DaoFactory.getProjectDao(session).get();
+        if (!projectBean.getStatus().equals(ProjectStatusType.ACTIVE)) {
+        	throw new ProjectException("Project" + 
+                    " is not an active project!");
+        } 
+        
+        double qWallTime = getDecimalHours(job.getQueue().getMaxCpuTime());
+        double requestWallTime = getDecimalHours(job.getRequestedCpuTime());
+        
+//        log.debug("q wall time: " + qWallTime + "\n" +
+//                "requested hours: " + requestWallTime + "\n" + 
+//                "comparing: " + (double)(qWallTime) + " > " + requestWallTime);
+        
+        if (getDecimalHours(job.getRequestedCpuTime()) > getDecimalHours(job.getQueue().getMaxCpuTime())) {
+            throw new JobSubmissionException("Job submission failed due to requested CPU time (" + 
+                    requestWallTime + "h) exceeding " + "the maximum allotted CPU time (" + 
+                    qWallTime + "h) for the " + job.getQueue().getName() + " queue!");
+        }
+        
+        double requestedCpus = new Double(job.getRequestedCpus()).doubleValue();
+        double requestedHours = getDecimalHours(job.getRequestedCpuTime());
+        
+        double used = projectBean.getUsage().getUsed();
+        double allocated = projectBean.getUsage().getAllocated();
+        
+//        log.debug("cpus: " + requestedCpus + "\n" +
+//               "hours: " + requestedHours + "\n" + 
+//               "used: " + used + "\n" + 
+//               "allocated: " + allocated + "\n" + 
+//               "comparing: " + (double)(requestedCpus * requestedHours + used) + " < " + allocated + "\n" + user.getCurrentProject().getUsage().toString());
+        
+        if ((requestedCpus * requestedHours + used) > allocated) {
+            throw new JobSubmissionException("You do not have enough SU's to run this job.\nPlease request an extension from http://www.gridchem.org");
+        }
+      
+        System.out.println("Job " + job.getName() + " was validated and ready for submission.");
+    }
+    
+    private double getDecimalHours(Calendar cal) {
+        
+        double days = (cal.get(Calendar.DAY_OF_YEAR) - 1) * 24;
+        double hours = cal.get(Calendar.HOUR_OF_DAY);
+        double minutes = new Double(cal.get(Calendar.MINUTE)).doubleValue() / 60;
+        return days + hours + minutes;
+    }
+    
+    private int getIntegerHours(Calendar cal) {
+        int days = (cal.get(Calendar.DAY_OF_YEAR) - 1) * 24;
+        int hours = cal.get(Calendar.HOUR_OF_DAY);
+        return days + hours;
+    }
+    
+    private void submit() throws Exception {
+        
+        try 
+        {
+            URL cgiURL;
+            if (Settings.DEBUG) 
+                log.info("Attempting to submit job: " + job.getName());
+            
+            // Depending on application, point to the proper cgi script
+//            if ("gaussian".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + GAUSSIAN);
+//            } else if ("gamess".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + GAMESS);
+//            } else if ("nwchem".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + NWCHEM);
+//            } else if ("molpro".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + MOLPRO);
+//            } else if ("amber".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + AMBER);
+//            } else if ("qmcpack".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + QMCPACK);
+//            } else if ("adf".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + ADF);
+//            } else if ("wien2k".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + WIEN2K);
+//            } else {
+//                throw new JobSubmissionException("Job submission failed due to unknown application: " + job.getSoftwareResource().getName());
+//            }
+           
+            System.out.print("The URL is " + Settings.CCG_CGI_SERVER + "launch_generic_script_NEW.cgi");    
+            cgiURL = new URL(Settings.CCG_CGI_SERVER + "launch_generic_script_NEW.cgi");
+            
+            int attempts = 1;
+            
+            // there is no point retrying the job over and over again 99% of the time,
+            // if a job fails the first time, it will fail the second time.
+            // while (!jobSubmitted && attempts <=3 && validProject && !diskFull && gsisshEnabled) {
+               
+            if (Settings.DEBUG) 
+                log.info("Attempt[" + attempts + "] submitting job for user " + session.getUserId());
+            
+            trySubmitCGI(cgiURL);
+
+        } catch (MalformedURLException me) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+            throw new JobSubmissionException("Bad job submission server URL.");
+        } catch (Exception e) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+            throw e;
+        }
+        
+    }
+    
+    private void trySubmitCGI(URL cgiURL) {
+        
+        boolean mustWaitForQueues = false;
+
+        URLConnection connex;
+        
+        String cgiOutput = "";
+        
+        try {
+            // Send out cgi request
+            connex = cgiURL.openConnection();
+            if(Settings.VERBOSE) log.info("Connected to job submission server at " + cgiURL.toString());
+            connex.setDoOutput(true);
+            
+            PrintWriter outStream = new PrintWriter(connex.getOutputStream());
+            if(Settings.VERBOSE) log.info("Established output stream to job submission server");
+                
+            job.setStatus(JobStatusType.SUBMITTING);
+                        
+            String userName;
+            String isGridChem;
+            if (session.getType().equals(AccessType.COMMUNITY)) {
+                userName = "ccguser";
+                isGridChem = "true";
+            } else {
+                // if an external user, get the user's local username from the db
+                /*String localName = DaoFactory.getResourceDao(session).findLocalUsernameForComputeResource(job.getSystem().getName());
+                
+                // if none is found, throw an exception
+                if (!ServiceUtil.isValid(localName) || localName.equals("ccguser")) {
+                    throw new JobSchedulingException("Could not resolve local username. Job submission failed.");
+                } 
+         
+                userName = localName;
+                isGridChem = "false";*/
+            	
+            	userName = job.getUser().getUsername();
+                isGridChem = "false";
+            }
+            String jobName = URLEncoder.encode(job.getName(),"UTF-8");
+            outStream.println("JobName=" + jobName);
+            outStream.println("Username=" + URLEncoder.encode(userName,"UTF-8"));
+            //edited by nik from userName to job.getUser().getUsername() 
+            outStream.println("GridChemUsername=" + URLEncoder.encode(job.getUser().getUsername(),"UTF-8"));
+            outStream.println("IsGridChem=" + URLEncoder.encode(isGridChem,"UTF-8"));
+
+            // we are calling launch_generaic_script.cgi with application name and input file extension
+            String appName =  URLEncoder.encode(job.getSoftware().getName(),"UTF-8");
+
+            outStream.println("ApplicationName=" + appName);
+            
+            String moduleName = URLEncoder.encode(job.getModule(),"UTF-8");
+            
+            outStream.println("ModuleName=" + moduleName);
+            
+            String memRequired = URLEncoder.encode(job.getUsedMemory().toString(), "UTF-8");
+            
+            outStream.println("MemoryRequired=" + memRequired);
+
+            // now write individual job fields to output stream
+        
+            String hpc = job.getSystem().getName();
+            String remSyst = URLEncoder.encode(hpc,"UTF-8");
+            outStream.println("Rem_Syst=" + remSyst);
+
+            String account = URLEncoder.encode(job.getAllocationName(),"UTF-8");
+            //outStream.println("Account=" + "cqj");
+            outStream.println("Account=" + account);
+
+            String queue = URLEncoder.encode(job.getQueue().getName(),"UTF-8");
+            outStream.println("Queue=" + queue);
+
+            // encode the time to traditional Time.toString() format and you're fine here
+            String time = URLEncoder.encode(getIntegerHours(job.getRequestedCpuTime())
+                    + ":" + job.getRequestedCpuTime().get(Calendar.MINUTE),
+                    "UTF-8");
+            outStream.println("Time=" + time);
+
+            String isMultiInputApp = URLEncoder.encode(((job.getInputFiles().size() > 1)?"true":"false"),"UTF-8");
+            outStream.println("isMultiInputApp=" + isMultiInputApp);
+            
+            String inputFileNames = "";//commented - nik job.getName();
+
+
+            for (LogicalFile file: job.getInputFiles()) {
+                inputFileNames += ((inputFileNames.equals(""))?"":",") + file.getLocalPath();
+            }
+            String inpFil = URLEncoder.encode(inputFileNames,"UTF-8");
+            outStream.println("InpFil=" + inpFil);
+            
+            String resProj = URLEncoder.encode(job.getExperimentName(),"UTF-8");
+            outStream.println("ResProj=" + resProj);
+
+            String nproc = URLEncoder.encode(job.getRequestedCpus().toString(),"UTF-8");
+            outStream.println("NP=" + nproc);
+
+//            String inptxt = URLEncoder.encode(job.getInput(),"UTF-8");
+//            outStream.println("Inptxt=" + inptxt);
+
+            outStream.close();
+
+            if (Settings.VERBOSE) {
+                System.out.println("SubmitTask: JobName --> " + jobName);
+                System.out.println("SubmitTask: Username --> " + userName);
+                System.out.println("SubmitTask: AppName   --> " + appName);
+                System.out.println("SubmitTask: ModuleName --> " + moduleName);
+                System.out.println("SubmitTask: Rem_Syst --> " + remSyst);
+                System.out.println("SubmitTask: Account  --> " + account);
+                System.out.println("SubmitTask: Queue    --> " + queue);
+                System.out.println("SubmitTask: Time     --> " + time);
+                System.out.println("SubmitTask: InpFil   --> " + inpFil);
+                System.out.println("SubmitTask: ResProj  --> " + resProj);
+                System.out.println("SubmitTask: nproc    --> " + nproc);
+                System.out.println("SubmitTask: memSize  --> " + memRequired);
+                System.out.println("SubmitTask: isMultiInputApp   --> " + isMultiInputApp);
+            }
+
+            // Retrieve CGI responses
+            BufferedReader inStream = new BufferedReader(new InputStreamReader(connex.getInputStream()));
+            String inLine;
+            String string_local_jobid="LOCAL_JOBID";
+            String string_gms_jobid="GMS_JOBID";
+            String string_gms_ws_jobid="GMS_WS_JOBID";
+            
+            if (Settings.VERBOSE) log.info("SubmitTask: Reading submission response");
+          
+            while ((inLine = inStream.readLine()) != null) {
+                if (Settings.VERBOSE) {
+//                    log.info("Job submission response size: " + inLine.length());
+                    log.info("Job submission response: " + inLine);
+//                    System.out.println("Job submission response: " + inLine);
+                }
+                
+                // save the output from the cgi for debugging purposes.
+                cgiOutput += inLine + "\n";
+        
+                // inLine is what I really want to print out on the messageBoard
+                if (inLine.length() > 4) {
+                    int inLineLen = inLine.length();
+                    if (inLine.substring(0,5).equals("Expir")) {
+//                        log.error("Job submission failed due to expired credentials on job submission server.");
+                        throw new PermissionException(
+                            "Job submission failed due to expired credentials on job submission server.");
+                    } else if (inLine.substring(0,5).equals("Error")) {
+                        throw new PermissionException("There is a problem with authentication; please return to the Authenticate frame");
+                    } else if (inLine.substring(0,5).equals("Err:B")) {
+                        mustWaitForQueues = true;
+                      
+                        int sleepSeconds = SLEEP_TIME/1000;
+                      
+                        if (Settings.DEBUG) 
+                            log.info("SubmitTask:  queue has max. # jobs; waiting " +
+                                    sleepSeconds + " seconds.  ");
+                        try {
+                            Thread.sleep(SLEEP_TIME); // wait for queues to clear
+                        } catch (InterruptedException e) {
+                            throw new JobSchedulingException(e);
+                        }
+                    } else if (inLine.startsWith(string_local_jobid)) {
+                        int stringLength=string_local_jobid.length();
+                        
+                        int local_jobid_start_index=stringLength+1;
+                        
+                        String localJobID=inLine.substring(local_jobid_start_index, inLineLen);
+              
+                        log.info("SubmitTask:(482) LOCAL_JOBID = " + localJobID);
+                        
+                        // updated job object with run time info
+                        job.setLocalId(localJobID.replaceAll(" ", ""));
+                        //job.toBean().setLocalId(localJobID.replaceAll(" ", ""));
+                        job.toBean().setLocalId(localJobID);
+                        job.setStatus(JobStatusType.SCHEDULED);
+                       
+                        jobSubmitted = true;
+                        
+                        log.info("SubmitTask: setLocalID eq LOCAL_JOBID " + job.getLocalId());
+                        if (Settings.DEBUG) {
+                            log.info("Job " + job.getName() + " was queued successfully for " + 
+                                    job.getUser().getId() + " on " + 
+                                    job.getSystem().getName()+" with local Id " +job.getLocalId());
+                        }
+                        // timing issue preventing client to pickup job data
+                        Thread.sleep(SLEEP_TIME);
+                        System.out.println(" Job Data updated at "+job.getLastUpdated());
+                        
+                    } else if (inLine.startsWith(string_gms_jobid)) {
+                        int gms_jobid_start_index = string_gms_jobid.length() + 1;
+                        
+                        String jobID=inLine.substring(gms_jobid_start_index, inLineLen);
+                        
+                    } else if (inLine.startsWith(string_gms_ws_jobid)) {
+                        int gms_ws_jobid_start_index = string_gms_ws_jobid.length() + 1;
+                        
+                        String jobID=inLine.substring(gms_ws_jobid_start_index, inLineLen);
+                        
+                        job.setId(new Long(jobID));
+                        
+                       
+
+                        // now that the job has been inserted into the db, bind the cached input
+                        // files to the job record
+                        //for (LogicalFile bean: job.getInputFiles()) {
+                        //        LogicalFile file = LogicalFileDao.get(bean.getId());
+                        //        file.setJobId(job.getId());
+                        //        file.save();
+                        //}
+
+
+
+
+
+			 ccgJobIDResolved = true;
+                        
+                        if (Settings.DEBUG)
+                            log.info("Job " + jobID + " successfully submitted via Job Submission Server.");
+                        
+                        // the submit script entered the jobid, so we just need to make sure and
+                        // flush the db so it shows up.
+                        JobDao.clearCache();
+                        
+                        break;
+                    } else if ((inLine.length() >= 18) && inLine.substring(0,18).equals("psn_checking_error")) {
+                        validProject = false;
+//                        log.error("Job submission failed due to bad allocation name.");
+                        throw new JobSchedulingException("Job submission failed due to bad allocation name.");
+                    } else if(inLine.indexOf("ERROR: jobid seems to NOT EXIST -- please check for errors above") > -1) {
+                        validProject = false;
+                        throw new JobSchedulingException("Job submission failed while placing job in queue.");
+                    } else if (inLine.indexOf("Command not found.") > -1) {
+                        validProject = false;
+                        throw new JobSchedulingException("Invalid resource allocation.");
+                    } else if (inLine.indexOf("ERROR: INPUT FILE NOT FOUND") > -1) {
+                        validProject = false;
+                        throw new JobSchedulingException("Error staging input files to remote resource.");
+                    } else if (inLine.indexOf(": unknown option") > -1) {
+                        validProject = false;
+                        throw new JobSchedulingException("Error launching job submission script on " + job.getSystem().getName());
+                    } else if ((inLine.length() >= 15) && inLine.substring(0,15).equals("gsissh_down_err")) {
+                        gsisshEnabled = false;
+//                        log.error("Job submission to " + job.getComputeResource().getName() + 
+//                                " is currently disabled due to a communication failure on the resource. " +
+//                                "  We are aware of the problem and will bring the resource back up as soon " +
+//                                " as possible.  Thank you for your patience.\n--CCG Administrator\n");
+//                        disableResource("Job submission to " + job.getSystemName() + 
+//                                " is currently disabled due to a communication failure on the resource. " +
+//                                "  We are aware of the problem and will bring the resource back up as soon " +
+//                                " as possible.  Thank you for your patience.\n--CCG Administrator\n" + 
+//                                new Date().toString());
+                        throw new JobSchedulingException("Job submission to " + job.getSystem().getName() + 
+                                " is currently disabled due to a communication failure on the resource. " +
+                                "  We are aware of the problem and will bring the resource back up as soon " +
+                                " as possible.  Thank you for your patience.\n--CCG Administrator\n");
+                    } else if ((inLine.length() >= 20) && inLine.substring(0,20).equals("check_diskfull_error")){
+                        diskFull = false;
+//                        log.error("Job submission failed due to lack of available disk space.");
+                        throw new JobSchedulingException("Job submission failed due to lack of available disk space.");
+                    } else if ((inLine.length() >= 18) && inLine.substring(0,18).equals("gridchemauth_error")){
+                        diskFull = false;
+//                        log.error("Job submission failed due to failed authentication check.");
+                        throw new PermissionException("Job submission failed due to failed authentication check.");
+                    } 
+                }
+            }
+            inStream.close();
+            
+            // as long as the job went into the queue, submission is a success
+            // occasionally there are race conditions finding the job in the db.
+            // we ignore these and assume the job will show up.
+            
+            if (Settings.DEBUG && !jobSubmitted) {
+                throw new JobSubmissionException("Remote server timed out while attempting to start the job.");
+            }
+        } catch (MalformedURLException me) { 
+            /* 
+            Some of our URL information was bad. We shouldn't get this error, 
+            as we passed most of our data through URLEncoder.encode. If we do 
+            have a problem, we'll throw up an error dialog and return. This error 
+            could be due to a problem with the server name parameter.
+             */
+            throw new JobSchedulingException("There was an unexpected problem with the Job Submission Server.");
+        } catch (JobSubmissionException e) {
+            throw e;
+        } catch (PermissionException e) {
+            throw e;
+        } catch (JobSchedulingException e) {
+            throw e;
+        } catch (Exception e) { 
+            throw new JobSchedulingException("Job submission failed for unknown reason.", e);
+        } finally {
+            job.setErrorDescription(cgiOutput);
+        }
+
+    }
+}
+=======
+/*Copyright (c) 2004,University of Illinois at Urbana-Champaign.  All rights reserved.
+ * 
+ * Created on Jun 26, 2006
+ * 
+ * Developed by: CCT, Center for Computation and Technology, 
+ * 				NCSA, University of Illinois at Urbana-Champaign
+ * 				OSC, Ohio Supercomputing Center
+ * 				TACC, Texas Advanced Computing Center
+ * 				UKy, University of Kentucky
+ * 
+ * https://www.gridchem.org/
+ * 
+ * Permission is hereby granted, free of charge, to any person 
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal with the Software without 
+ * restriction, including without limitation the rights to use, 
+ * copy, modify, merge, publish, distribute, sublicense, and/or 
+ * sell copies of the Software, and to permit persons to whom 
+ * the Software is furnished to do so, subject to the following conditions:
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimers.
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimers in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the names of Chemistry and Computational Biology Group , NCSA, 
+ *    University of Illinois at Urbana-Champaign, nor the names of its contributors 
+ *    may be used to endorse or promote products derived from this Software without 
+ *    specific prior written permission.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF 
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  
+ * IN NO EVENT SHALL THE CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, 
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+ * DEALINGS WITH THE SOFTWARE.
+*/
+
+package org.gridchem.service.job.task;
+
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.util.Calendar;
+
+import org.apache.log4j.Logger;
+import org.gridchem.service.beans.LogicalFileBean;
+import org.gridchem.service.beans.JobBean;
+import org.gridchem.service.beans.ProjectBean;
+import org.gridchem.service.beans.QueueBean;
+import org.gridchem.service.dao.BlackListDao;
+import org.gridchem.service.dao.DaoFactory;
+import org.gridchem.service.dao.JobDao;
+import org.gridchem.service.dao.LogicalFileDao;
+import org.gridchem.service.exceptions.InfrastructureException;
+import org.gridchem.service.exceptions.JobException;
+import org.gridchem.service.exceptions.JobSchedulingException;
+import org.gridchem.service.exceptions.JobSubmissionException;
+import org.gridchem.service.exceptions.PermissionException;
+import org.gridchem.service.exceptions.ProjectException;
+import org.gridchem.service.model.GMSSession;
+import org.gridchem.service.model.Job;
+import org.gridchem.service.model.LogicalFile;
+import org.gridchem.service.model.enumeration.AccessType;
+import org.gridchem.service.model.enumeration.JobStatusType;
+import org.gridchem.service.model.enumeration.ProjectStatusType;
+import org.gridchem.service.util.ServiceUtil;
+import org.gridchem.service.util.Settings;
+import org.hibernate.ObjectNotFoundException;
+
+/**
+ * This is a quick and dirty job submission class.  It falls back on the existing
+ * cgi scripts to actually submit the jobs.  Jobs are passed in as DTO's, the jobs 
+ * are parsed, a job object created, then submitted if everything goes well.  Once
+ * the job is successfully submitted, the job object is inserted into the db by the
+ * cgi scripts and the service will update it's resource properties to reflect the
+ * new job.
+ * 
+ * @author Rion Dooley < dooley [at] tacc [dot] utexas [dot] edu >
+ *
+ */
+@SuppressWarnings("unused")
+public class SubmitTask extends JobTaskImpl implements JobTask {
+    public static Logger log = Logger.getLogger(SubmitTask.class.getName());
+    
+    private boolean jobSubmitted = false;
+    private boolean ccgJobIDResolved = false;
+    private boolean diskFull = false;
+    private boolean validProject = true; 
+    private boolean gsisshEnabled = true;
+    
+    public SubmitTask(GMSSession session, Job job) {
+        super(session, job);
+        
+    }
+    
+    public SubmitTask(GMSSession session, JobBean jobDTO, boolean notifyUser) {
+        super(session, jobDTO, notifyUser);
+    }
+    
+    /**
+     * Physically submit the job for execution
+     * 
+     * @throws JobSubmissionException
+     */
+    public Job execute() throws JobException{
+        
+        try {
+            
+            validate();
+            
+            submit();
+            
+            return job;
+        } catch (PermissionException e) {
+        	throw e;
+        } catch (JobSchedulingException e) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+            e.setErrorDescription(job.getErrorDescription());
+            log.error(e);
+//            e.printStackTrace();
+            throw e;
+        } catch (JobSubmissionException e) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+//            e.printStackTrace();
+            throw e;
+        } catch (ObjectNotFoundException e) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+            JobSchedulingException je = new JobSchedulingException("Job submitted successfully, " + 
+                    "however there was an error saving the job record. The job " +
+                    "will run, however notification will be disabled.\n");
+            je.setErrorDescription(job.getErrorDescription());
+            throw je;
+        } catch (InfrastructureException e) {
+            // send an email to the GMS admin telling of the lost job record so it can be 
+            // manually inserted into the db.
+            throw new JobSubmissionException("Job submitted successfully, " + 
+                    "however there was an error saving the job record.",e);
+        } catch (Exception e) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+            JobSchedulingException je = 
+                new JobSchedulingException("Job submission failed.", e);
+            je.setErrorDescription(job.getErrorDescription());
+            log.error(e);
+            throw je;
+        }
+    }
+    
+    /**
+     * Make sure the job parameters are valid before submission.  This includes
+     * checking user balances, submit resources, time, cpu's, etc.
+     * 
+     * @throws Exception
+     */
+    public void validate() throws Exception {
+        if (job == null) 
+            throw new JobException("No job specified for submission.");
+        
+        if (!ServiceUtil.isValid(job.getRequestedCpuTime())) {
+            throw new JobException("Job submission failed due to missing requested CPU time!");
+        }
+        
+        if (!ServiceUtil.isValid(job.getName())) {
+            throw new JobException("Job submission failed due to missing job name!");
+        }
+        
+        if (!ServiceUtil.isValid(job.getExperimentName())) {
+            throw new JobException("Job submission failed due to missing research project name!");
+        }
+        
+        if (!ServiceUtil.isValid(job.getRequestedCpus())) {
+            throw new JobException("Job submission failed due to missing requested CPUs!");
+        }
+        
+        // if no resource is selected, then pick one for the user using the
+        // selection algorithm in grms and populate the resource related
+        // fields with appropriate matching values.
+        if(job.getSystem() != null) {
+//            System.out.println("No compute resource selected, picking one from the list of available resources...");
+//            JobScheduler.selectResource(job);
+//            System.out.println("Selected to run job on " + job.getSystemName());
+//            job.setScratchDir(job.getSystemName().getScratchDirectory());
+//            System.out.println("Scratch dir " + job.getWorkDir());
+//            // find the specified queue or use the first matching queue.
+//            // select the first queue that can support the job description
+//            for(Queue q: job.getSystemName().getQueues()) {
+//                if (q.getMaxCpus() >= job.getRequestedCpus() && 
+//                        q.getCpuTimeLimit().after(job.getRequestedCpuTime())) {
+//                    job.setQueue(q);
+//                }
+//            }
+//            
+//            // make sure a queue was found
+//            if (job.getQueue() == null) {
+//                throw new JobException("No queue found to support the given job description.");
+//            }
+            
+            System.out.println("Selected queue " + job.getQueue().getName());
+            
+        } 
+        
+        if (!BlackListDao.userHasAccessToSoftware(session.getUserId(), job.getSoftware().getName())) {
+        	throw new PermissionException("User is restricted from using this software.");
+        }
+        if (job.getQueue() == null) {
+        	throw new JobException("No queue found to support the given job description.");
+        }
+        
+        if (!ServiceUtil.isValid(job.getAllocationName())) {
+            throw new JobException("Job submission failed due to missing allocation name!");
+        } 
+        /*else if (!DaoFactory.getProjectDao(session).isAllocationValid(job.getProject().getId(),job.getAllocationName())) {
+        	throw new ProjectException("Project" + 
+            " is not an active project!");
+        }*/
+        
+        if (job.getProject() == null) {
+            throw new JobException("Job submission failed due to missing project resource!");
+        }
+        
+        ProjectBean projectBean = DaoFactory.getProjectDao(session).get();
+        if (!projectBean.getStatus().equals(ProjectStatusType.ACTIVE)) {
+        	throw new ProjectException("Project" + 
+                    " is not an active project!");
+        } 
+        
+        double qWallTime = getDecimalHours(job.getQueue().getMaxCpuTime());
+        double requestWallTime = getDecimalHours(job.getRequestedCpuTime());
+        
+//        log.debug("q wall time: " + qWallTime + "\n" +
+//                "requested hours: " + requestWallTime + "\n" + 
+//                "comparing: " + (double)(qWallTime) + " > " + requestWallTime);
+        
+        if (getDecimalHours(job.getRequestedCpuTime()) > getDecimalHours(job.getQueue().getMaxCpuTime())) {
+            throw new JobSubmissionException("Job submission failed due to requested CPU time (" + 
+                    requestWallTime + "h) exceeding " + "the maximum allotted CPU time (" + 
+                    qWallTime + "h) for the " + job.getQueue().getName() + " queue!");
+        }
+        
+        double requestedCpus = new Double(job.getRequestedCpus()).doubleValue();
+        double requestedHours = getDecimalHours(job.getRequestedCpuTime());
+        
+        double used = projectBean.getUsage().getUsed();
+        double allocated = projectBean.getUsage().getAllocated();
+        
+//        log.debug("cpus: " + requestedCpus + "\n" +
+//               "hours: " + requestedHours + "\n" + 
+//               "used: " + used + "\n" + 
+//               "allocated: " + allocated + "\n" + 
+//               "comparing: " + (double)(requestedCpus * requestedHours + used) + " < " + allocated + "\n" + user.getCurrentProject().getUsage().toString());
+        
+        if ((requestedCpus * requestedHours + used) > allocated) {
+            throw new JobSubmissionException("You do not have enough SU's to run this job.\nPlease request an extension from http://www.gridchem.org");
+        }
+      
+        System.out.println("Job " + job.getName() + " was validated and ready for submission.");
+    }
+    
+    private double getDecimalHours(Calendar cal) {
+        
+        double days = (cal.get(Calendar.DAY_OF_YEAR) - 1) * 24;
+        double hours = cal.get(Calendar.HOUR_OF_DAY);
+        double minutes = new Double(cal.get(Calendar.MINUTE)).doubleValue() / 60;
+        return days + hours + minutes;
+    }
+    
+    private int getIntegerHours(Calendar cal) {
+        int days = (cal.get(Calendar.DAY_OF_YEAR) - 1) * 24;
+        int hours = cal.get(Calendar.HOUR_OF_DAY);
+        return days + hours;
+    }
+    
+    private void submit() throws Exception {
+        
+        try 
+        {
+            URL cgiURL;
+            if (Settings.DEBUG) 
+                log.info("Attempting to submit job: " + job.getName());
+            
+            // Depending on application, point to the proper cgi script
+//            if ("gaussian".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + GAUSSIAN);
+//            } else if ("gamess".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + GAMESS);
+//            } else if ("nwchem".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + NWCHEM);
+//            } else if ("molpro".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + MOLPRO);
+//            } else if ("amber".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + AMBER);
+//            } else if ("qmcpack".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + QMCPACK);
+//            } else if ("adf".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + ADF);
+//            } else if ("wien2k".equals(job.getSoftwareResource().getName().toLowerCase())) {
+//                cgiURL = new URL(Settings.CCG_CGI_SERVER + WIEN2K);
+//            } else {
+//                throw new JobSubmissionException("Job submission failed due to unknown application: " + job.getSoftwareResource().getName());
+//            }
+           
+            System.out.print("The URL is " + Settings.CCG_CGI_SERVER + "launch_generic_script_NEW.cgi");    
+            cgiURL = new URL(Settings.CCG_CGI_SERVER + "launch_generic_script_NEW.cgi");
+            
+            int attempts = 1;
+            
+            // there is no point retrying the job over and over again 99% of the time,
+            // if a job fails the first time, it will fail the second time.
+            // while (!jobSubmitted && attempts <=3 && validProject && !diskFull && gsisshEnabled) {
+               
+            if (Settings.DEBUG) 
+                log.info("Attempt[" + attempts + "] submitting job for user " + session.getUserId());
+            
+            trySubmitCGI(cgiURL);
+
+        } catch (MalformedURLException me) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+            throw new JobSubmissionException("Bad job submission server URL.");
+        } catch (Exception e) {
+            job.setStatus(JobStatusType.SUBMISSION_ERROR);
+            throw e;
+        }
+        
+    }
+    
+    private void trySubmitCGI(URL cgiURL) {
+        
+        boolean mustWaitForQueues = false;
+
+        URLConnection connex;
+        
+        String cgiOutput = "";
+        
+        try {
+            // Send out cgi request
+            connex = cgiURL.openConnection();
+            if(Settings.VERBOSE) log.info("Connected to job submission server at " + cgiURL.toString());
+            connex.setDoOutput(true);
+            
+            PrintWriter outStream = new PrintWriter(connex.getOutputStream());
+            if(Settings.VERBOSE) log.info("Established output stream to job submission server");
+                
+            job.setStatus(JobStatusType.SUBMITTING);
+                        
+            String userName;
+            String isGridChem;
+            if (session.getType().equals(AccessType.COMMUNITY)) {
+                userName = "ccguser";
+                isGridChem = "true";
+            } else {
+                // if an external user, get the user's local username from the db
+                /*String localName = DaoFactory.getResourceDao(session).findLocalUsernameForComputeResource(job.getSystem().getName());
+                
+                // if none is found, throw an exception
+                if (!ServiceUtil.isValid(localName) || localName.equals("ccguser")) {
+                    throw new JobSchedulingException("Could not resolve local username. Job submission failed.");
+                } 
+         
+                userName = localName;
+                isGridChem = "false";*/
+            	
+            	userName = job.getUser().getUsername();
+                isGridChem = "false";
+            }
+            String jobName = URLEncoder.encode(job.getName(),"UTF-8");
+            outStream.println("JobName=" + jobName);
+            outStream.println("Username=" + URLEncoder.encode(userName,"UTF-8"));
+            //edited by nik from userName to job.getUser().getUsername() 
+            outStream.println("GridChemUsername=" + URLEncoder.encode(job.getUser().getUsername(),"UTF-8"));
+            outStream.println("IsGridChem=" + URLEncoder.encode(isGridChem,"UTF-8"));
+
+            // we are calling launch_generaic_script.cgi with application name and input file extension
+            String appName =  URLEncoder.encode(job.getSoftware().getName(),"UTF-8");
+
+            outStream.println("ApplicationName=" + appName);
+            
+            String moduleName = URLEncoder.encode(job.getModule(),"UTF-8");
+            
+            outStream.println("ModuleName=" + moduleName);
+            
+            String memRequired = URLEncoder.encode(job.getUsedMemory().toString(), "UTF-8");
+            
+            outStream.println("MemoryRequired=" + memRequired);
+
+            // now write individual job fields to output stream
+        
+            String hpc = job.getSystem().getName();
+            String remSyst = URLEncoder.encode(hpc,"UTF-8");
+            outStream.println("Rem_Syst=" + remSyst);
+
+            String account = URLEncoder.encode(job.getAllocationName(),"UTF-8");
+            //outStream.println("Account=" + "cqj");
+            outStream.println("Account=" + account);
+
+            String queue = URLEncoder.encode(job.getQueue().getName(),"UTF-8");
+            outStream.println("Queue=" + queue);
+
+            // encode the time to traditional Time.toString() format and you're fine here
+            String time = URLEncoder.encode(getIntegerHours(job.getRequestedCpuTime())
+                    + ":" + job.getRequestedCpuTime().get(Calendar.MINUTE),
+                    "UTF-8");
+            outStream.println("Time=" + time);
+
+            String isMultiInputApp = URLEncoder.encode(((job.getInputFiles().size() > 1)?"true":"false"),"UTF-8");
+            outStream.println("isMultiInputApp=" + isMultiInputApp);
+            
+            String inputFileNames = "";//commented - nik job.getName();
+
+
+            for (LogicalFile file: job.getInputFiles()) {
+                inputFileNames += ((inputFileNames.equals(""))?"":",") + file.getLocalPath();
+            }
+            String inpFil = URLEncoder.encode(inputFileNames,"UTF-8");
+            outStream.println("InpFil=" + inpFil);
+            
+            String resProj = URLEncoder.encode(job.getExperimentName(),"UTF-8");
+            outStream.println("ResProj=" + resProj);
+
+            String nproc = URLEncoder.encode(job.getRequestedCpus().toString(),"UTF-8");
+            outStream.println("NP=" + nproc);
+
+//            String inptxt = URLEncoder.encode(job.getInput(),"UTF-8");
+//            outStream.println("Inptxt=" + inptxt);
+
+            outStream.close();
+
+            if (Settings.VERBOSE) {
+                System.out.println("SubmitTask: JobName --> " + jobName);
+                System.out.println("SubmitTask: Username --> " + userName);
+                System.out.println("SubmitTask: AppName   --> " + appName);
+                System.out.println("SubmitTask: ModuleName --> " + moduleName);
+                System.out.println("SubmitTask: Rem_Syst --> " + remSyst);
+                System.out.println("SubmitTask: Account  --> " + account);
+                System.out.println("SubmitTask: Queue    --> " + queue);
+                System.out.println("SubmitTask: Time     --> " + time);
+                System.out.println("SubmitTask: InpFil   --> " + inpFil);
+                System.out.println("SubmitTask: ResProj  --> " + resProj);
+                System.out.println("SubmitTask: nproc    --> " + nproc);
+                System.out.println("SubmitTask: memSize  --> " + memRequired);
+                System.out.println("SubmitTask: isMultiInputApp   --> " + isMultiInputApp);
+            }
+
+            // Retrieve CGI responses
+            BufferedReader inStream = new BufferedReader(new InputStreamReader(connex.getInputStream()));
+            String inLine;
+            String string_local_jobid="LOCAL_JOBID";
+            String string_gms_jobid="GMS_JOBID";
+            String string_gms_ws_jobid="GMS_WS_JOBID";
+            
+            if (Settings.VERBOSE) log.info("SubmitTask: Reading submission response");
+          
+            while ((inLine = inStream.readLine()) != null) {
+                if (Settings.VERBOSE) {
+//                    log.info("Job submission response size: " + inLine.length());
+                    log.info("Job submission response: " + inLine);
+//                    System.out.println("Job submission response: " + inLine);
+                }
+                
+                // save the output from the cgi for debugging purposes.
+                cgiOutput += inLine + "\n";
+        
+                // inLine is what I really want to print out on the messageBoard
+                if (inLine.length() > 4) {
+                    int inLineLen = inLine.length();
+                    if (inLine.substring(0,5).equals("Expir")) {
+//                        log.error("Job submission failed due to expired credentials on job submission server.");
+                        throw new PermissionException(
+                            "Job submission failed due to expired credentials on job submission server.");
+                    } else if (inLine.substring(0,5).equals("Error")) {
+                        throw new PermissionException("There is a problem with authentication; please return to the Authenticate frame");
+                    } else if (inLine.substring(0,5).equals("Err:B")) {
+                        mustWaitForQueues = true;
+                      
+                        int sleepSeconds = SLEEP_TIME/1000;
+                      
+                        if (Settings.DEBUG) 
+                            log.info("SubmitTask:  queue has max. # jobs; waiting " +
+                                    sleepSeconds + " seconds.  ");
+                        try {
+                            Thread.sleep(SLEEP_TIME); // wait for queues to clear
+                        } catch (InterruptedException e) {
+                            throw new JobSchedulingException(e);
+                        }
+                    } else if (inLine.startsWith(string_local_jobid)) {
+                        int stringLength=string_local_jobid.length();
+                        
+                        int local_jobid_start_index=stringLength+1;
+                        
+                        String localJobID=inLine.substring(local_jobid_start_index, inLineLen);
+              
+                        log.info("SubmitTask:(482) LOCAL_JOBID = " + localJobID);
+                        
+                        // updated job object with run time info
+                        job.setLocalId(localJobID.replaceAll(" ", ""));
+                        //job.toBean().setLocalId(localJobID.replaceAll(" ", ""));
+                        job.toBean().setLocalId(localJobID);
+                        job.setStatus(JobStatusType.SCHEDULED);
+                       
+                        jobSubmitted = true;
+                        
+                        log.info("SubmitTask: setLocalID eq LOCAL_JOBID " + job.getLocalId());
+                        if (Settings.DEBUG) {
+                            log.info("Job " + job.getName() + " was queued successfully for " + 
+                                    job.getUser().getId() + " on " + 
+                                    job.getSystem().getName()+" with local Id " +job.getLocalId());
+                        }
+                        // timing issue preventing client to pickup job data
+                        Thread.sleep(SLEEP_TIME);
+                        System.out.println(" Job Data updated at "+job.getLastUpdated());
+                        
+                    } else if (inLine.startsWith(string_gms_jobid)) {
+                        int gms_jobid_start_index = string_gms_jobid.length() + 1;
+                        
+                        String jobID=inLine.substring(gms_jobid_start_index, inLineLen);
+                        
+                    } else if (inLine.startsWith(string_gms_ws_jobid)) {
+                        int gms_ws_jobid_start_index = string_gms_ws_jobid.length() + 1;
+                        
+                        String jobID=inLine.substring(gms_ws_jobid_start_index, inLineLen);
+                        
+                        job.setId(new Long(jobID));
+                        
+                       
+
+                        // now that the job has been inserted into the db, bind the cached input
+                        // files to the job record
+                        for (LogicalFile bean: job.getInputFiles()) {
+                                LogicalFile file = LogicalFileDao.get(bean.getId());
+                                file.setJobId(job.getId());
+                                file.save();
+                        }
+
+
+
+
+
+			 ccgJobIDResolved = true;
+                        
+                        if (Settings.DEBUG)
+                            log.info("Job " + jobID + " successfully submitted via Job Submission Server.");
+                        
+                        // the submit script entered the jobid, so we just need to make sure and
+                        // flush the db so it shows up.
+                        JobDao.clearCache();
+                        
+                        break;
+                    } else if ((inLine.length() >= 18) && inLine.substring(0,18).equals("psn_checking_error")) {
+                        validProject = false;
+//                        log.error("Job submission failed due to bad allocation name.");
+                        throw new JobSchedulingException("Job submission failed due to bad allocation name.");
+                    } else if(inLine.indexOf("ERROR: jobid seems to NOT EXIST -- please check for errors above") > -1) {
+                        validProject = false;
+                        throw new JobSchedulingException("Job submission failed while placing job in queue.");
+                    } else if (inLine.indexOf("Command not found.") > -1) {
+                        validProject = false;
+                        throw new JobSchedulingException("Invalid resource allocation.");
+                    } else if (inLine.indexOf("ERROR: INPUT FILE NOT FOUND") > -1) {
+                        validProject = false;
+                        throw new JobSchedulingException("Error staging input files to remote resource.");
+                    } else if (inLine.indexOf(": unknown option") > -1) {
+                        validProject = false;
+                        throw new JobSchedulingException("Error launching job submission script on " + job.getSystem().getName());
+                    } else if ((inLine.length() >= 15) && inLine.substring(0,15).equals("gsissh_down_err")) {
+                        gsisshEnabled = false;
+//                        log.error("Job submission to " + job.getComputeResource().getName() + 
+//                                " is currently disabled due to a communication failure on the resource. " +
+//                                "  We are aware of the problem and will bring the resource back up as soon " +
+//                                " as possible.  Thank you for your patience.\n--CCG Administrator\n");
+//                        disableResource("Job submission to " + job.getSystemName() + 
+//                                " is currently disabled due to a communication failure on the resource. " +
+//                                "  We are aware of the problem and will bring the resource back up as soon " +
+//                                " as possible.  Thank you for your patience.\n--CCG Administrator\n" + 
+//                                new Date().toString());
+                        throw new JobSchedulingException("Job submission to " + job.getSystem().getName() + 
+                                " is currently disabled due to a communication failure on the resource. " +
+                                "  We are aware of the problem and will bring the resource back up as soon " +
+                                " as possible.  Thank you for your patience.\n--CCG Administrator\n");
+                    } else if ((inLine.length() >= 20) && inLine.substring(0,20).equals("check_diskfull_error")){
+                        diskFull = false;
+//                        log.error("Job submission failed due to lack of available disk space.");
+                        throw new JobSchedulingException("Job submission failed due to lack of available disk space.");
+                    } else if ((inLine.length() >= 18) && inLine.substring(0,18).equals("gridchemauth_error")){
+                        diskFull = false;
+//                        log.error("Job submission failed due to failed authentication check.");
+                        throw new PermissionException("Job submission failed due to failed authentication check.");
+                    } 
+                }
+            }
+            inStream.close();
+            
+            // as long as the job went into the queue, submission is a success
+            // occasionally there are race conditions finding the job in the db.
+            // we ignore these and assume the job will show up.
+            
+            if (Settings.DEBUG && !jobSubmitted) {
+                throw new JobSubmissionException("Remote server timed out while attempting to start the job.");
+            }
+        } catch (MalformedURLException me) { 
+            /* 
+            Some of our URL information was bad. We shouldn't get this error, 
+            as we passed most of our data through URLEncoder.encode. If we do 
+            have a problem, we'll throw up an error dialog and return. This error 
+            could be due to a problem with the server name parameter.
+             */
+            throw new JobSchedulingException("There was an unexpected problem with the Job Submission Server.");
+        } catch (JobSubmissionException e) {
+            throw e;
+        } catch (PermissionException e) {
+            throw e;
+        } catch (JobSchedulingException e) {
+            throw e;
+        } catch (Exception e) { 
+            throw new JobSchedulingException("Job submission failed for unknown reason.", e);
+        } finally {
+            job.setErrorDescription(cgiOutput);
+        }
+
+    }
+    
+	/**
+	 * Physically submit the CGenfFF job for execution
+	 * @throws JobSubmissionException
+	 */
+	public Job executeCgenffJob() throws JobException {
+
+		try {
+
+			validateCgenffInputs();
+
+			submitCgenffRequest();
+
+			return job;
+		} catch (PermissionException e) {
+			throw e;
+		} catch (JobSchedulingException e) {
+			job.setStatus(JobStatusType.SUBMISSION_ERROR);
+			e.setErrorDescription(job.getErrorDescription());
+			log.error(e);
+			// e.printStackTrace();
+			throw e;
+		} catch (JobSubmissionException e) {
+			job.setStatus(JobStatusType.SUBMISSION_ERROR);
+			// e.printStackTrace();
+			throw e;
+		} catch (ObjectNotFoundException e) {
+			job.setStatus(JobStatusType.SUBMISSION_ERROR);
+			JobSchedulingException je = new JobSchedulingException(
+					"Job submitted successfully, "
+							+ "however there was an error saving the job record. The job "
+							+ "will run, however notification will be disabled.\n");
+			je.setErrorDescription(job.getErrorDescription());
+			throw je;
+		} catch (InfrastructureException e) {
+			// send an email to the GMS admin telling of the lost job record so
+			// it can be
+			// manually inserted into the db.
+			throw new JobSubmissionException("Job submitted successfully, "
+					+ "however there was an error saving the job record.", e);
+		} catch (Exception e) {
+			job.setStatus(JobStatusType.SUBMISSION_ERROR);
+			JobSchedulingException je = new JobSchedulingException(
+					"Job submission failed.", e);
+			je.setErrorDescription(job.getErrorDescription());
+			log.error(e);
+			throw je;
+		}
+	}	
+
+	/**
+	 * Make sure the job parameters are valid before submission. This includes
+	 * checking user balances, submit resources, time, cpu's, etc.
+	 * 
+	 * @throws Exception
+	 */
+	public void validateCgenffInputs() throws Exception {
+		if (job == null)
+			throw new JobException("No job specified for submission.");
+
+		if (!ServiceUtil.isValid(job.getName())) {
+			throw new JobException(
+					"Job submission failed due to missing job name!");
+		}
+
+		if (!ServiceUtil.isValid(job.getExperimentName())) {
+			throw new JobException(
+					"Job submission failed due to missing research project name!");
+		}
+
+		if (!ServiceUtil.isValid(job.getSystem().getHostname())) {
+			throw new JobException(
+					"Job submission failed due to missing IP Address!");
+		}
+
+		System.out.println("Job " + job.getName()
+				+ " was validated and ready for submission.");
+	}	
+
+	private void submitCgenffRequest() throws Exception {
+
+		try {
+			URL cgiURL;
+			if (Settings.DEBUG)
+				log.info("Attempting to submit job: " + job.getName());
+
+			System.out.print("The URL is " + Settings.CCG_CGI_SERVER
+					+ "cgenff_launch_script.cgi");
+			cgiURL = new URL(Settings.CCG_CGI_SERVER
+					+ "cgenff_launch_script.cgi");
+
+			int attempts = 1;
+
+			if (Settings.DEBUG)
+				log.info("Attempt[" + attempts + "] submitting job for user "
+						+ session.getUserId());
+
+			submitCgenffInputToCGI(cgiURL);
+
+		} catch (MalformedURLException me) {
+			job.setStatus(JobStatusType.SUBMISSION_ERROR);
+			throw new JobSubmissionException("Bad job submission server URL.");
+		} catch (Exception e) {
+			job.setStatus(JobStatusType.SUBMISSION_ERROR);
+			throw e;
+		}
+
+	}	
+	
+	
+	private void submitCgenffInputToCGI(URL cgiURL) {
+
+		boolean mustWaitForQueues = false;
+
+		URLConnection connex;
+
+		String cgiOutput = "";
+
+		try {
+			// Send out cgi request
+			connex = cgiURL.openConnection();
+			if (Settings.VERBOSE)
+				log.info("Connected to job submission server at "
+						+ cgiURL.toString());
+			connex.setDoOutput(true);
+
+			PrintWriter outStream = new PrintWriter(connex.getOutputStream());
+			if (Settings.VERBOSE)
+				log.info("Established output stream to job submission server");
+
+			job.setStatus(JobStatusType.SUBMITTING);
+
+			String userName;
+			String isGridChem;
+			if (session.getType().equals(AccessType.COMMUNITY)) {
+				userName = "ccguser";
+				isGridChem = "true";
+			} else {
+				// if an external user, get the user's local username from the db
+				String localName = DaoFactory.getResourceDao(session)
+						.findLocalUsernameForComputeResource(
+								job.getSystem().getName());
+
+				// if none is found, throw an exception
+				if (!ServiceUtil.isValid(localName)
+						|| localName.equals("ccguser")) {
+					throw new JobSchedulingException(
+							"Could not resolve local username. Job submission failed.");
+				}
+
+				userName = localName;
+				isGridChem = "false";
+			}
+			String jobName = URLEncoder.encode(job.getName(), "UTF-8");
+			outStream.println("JobName=" + jobName);
+			outStream.println("Username="
+					+ URLEncoder.encode(userName, "UTF-8"));
+			// edited by nik from userName to job.getUser().getUsername()
+			outStream.println("GridChemUsername="
+					+ URLEncoder.encode(job.getUser().getUsername(), "UTF-8"));
+			outStream.println("IsGridChem="
+					+ URLEncoder.encode(isGridChem, "UTF-8"));
+
+			String inputFileNames = "";// commented - nik job.getName();
+
+			for (LogicalFile file : job.getInputFiles()) {
+				inputFileNames += ((inputFileNames.equals("")) ? "" : ",")
+						+ file.getLocalPath();
+			}
+			String inpFil = URLEncoder.encode(inputFileNames, "UTF-8");
+			outStream.println("InpFil=" + inpFil);
+
+			String resProj = URLEncoder
+					.encode(job.getExperimentName(), "UTF-8");
+			outStream.println("ResProj=" + resProj);
+
+			// client's IP Address
+			String ipAddress = URLEncoder.encode(job.getSystem().getHostname(),
+					"UTF-8");
+			outStream.println("ipAddress=" + ipAddress);
+
+			// file type - usually mol2 (SYBYL) format
+			String fileExtn = inpFil.substring(inpFil.lastIndexOf(".") + 1);
+			fileExtn = URLEncoder.encode(fileExtn, "UTF-8");
+			outStream.println("fileExtn=" + fileExtn);
+
+			outStream.close();
+
+			if (Settings.VERBOSE) {
+				System.out.println("SubmitTask: JobName --> " + jobName);
+				System.out.println("SubmitTask: Username --> " + userName);
+				System.out.println("SubmitTask: InpFil   --> " + inpFil);
+				System.out.println("SubmitTask: ResProj  --> " + resProj);
+				System.out.println("SubmitTask: IpAddress  --> " + ipAddress);
+			}
+
+			cgiOutput = readOuputFromCGI(connex);
+
+		} catch (MalformedURLException me) {
+			/*
+			 * Some of our URL information was bad. We shouldn't get this error,
+			 * as we passed most of our data through URLEncoder.encode. If we do
+			 * have a problem, we'll throw up an error dialog and return. This
+			 * error could be due to a problem with the server name parameter.
+			 */
+			throw new JobSchedulingException(
+					"There was an unexpected problem with the Job Submission Server.");
+		} catch (JobSubmissionException e) {
+			throw e;
+		} catch (PermissionException e) {
+			throw e;
+		} catch (JobSchedulingException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new JobSchedulingException(
+					"Job submission failed for unknown reason.", e);
+		} finally {
+			job.setErrorDescription(cgiOutput);
+		}
+	}
+
+	private String readOuputFromCGI(URLConnection connex) throws Exception {
+
+		String inLine = "";
+		boolean mustWaitForQueues = false;
+		BufferedReader inStream = new BufferedReader(new InputStreamReader(
+				connex.getInputStream()));
+
+		StringBuilder fileText = new StringBuilder();
+		String string_local_jobid = "LOCAL_JOBID";
+		String string_gms_jobid = "GMS_JOBID";
+		String string_gms_ws_jobid = "GMS_WS_JOBID";		
+
+		if (Settings.VERBOSE)
+			log.info("SubmitTask: Reading submission response");
+
+		while ((inLine = inStream.readLine()) != null) {
+
+			inLine = inLine.trim();
+			if (Settings.VERBOSE)
+				log.info("Job submission response: " + inLine);
+
+			if (inLine == "") {
+				continue;
+			} else {
+				
+				fileText.append(inLine);
+				int inLineLen = inLine.length();
+
+				if (inLineLen > 4) {
+					
+					if (inLine.substring(0, 5).equals("Expir")) {
+						// log.error("Job submission failed due to expired credentials on job submission server.");
+						throw new PermissionException(
+								"Job submission failed due to expired credentials on job submission server.");
+					} else if (inLine.substring(0, 5).equals("Error")) {
+						throw new PermissionException(
+								"There is a problem with authentication; please return to the Authenticate frame");
+					} else if (inLine.startsWith(string_local_jobid)) {
+						int stringLength = string_local_jobid.length();
+
+						int local_jobid_start_index = stringLength + 1;
+
+						String localJobID = inLine.substring(
+								local_jobid_start_index, inLineLen);
+
+						log
+								.info("SubmitTask:(482) LOCAL_JOBID = "
+										+ localJobID);
+
+						// updated job object with run time info
+						job.setLocalId(localJobID.replaceAll(" ", ""));
+						// job.toBean().setLocalId(localJobID.replaceAll(" ",
+						// ""));
+						job.toBean().setLocalId(localJobID);
+						job.setStatus(JobStatusType.SCHEDULED);
+
+						jobSubmitted = true;
+
+						log.info("SubmitTask: setLocalID eq LOCAL_JOBID "
+								+ job.getLocalId());
+						if (Settings.DEBUG) {
+							log.info("Job " + job.getName()
+									+ " was queued successfully for "
+									+ job.getUser().getId() + " on "
+									+ job.getSystem().getName()
+									+ " with local Id " + job.getLocalId());
+						}
+						// timing issue preventing client to pickup job data
+						Thread.sleep(SLEEP_TIME);
+						System.out.println(" Job Data updated at "
+								+ job.getLastUpdated());
+
+					} else if (inLine.startsWith(string_gms_jobid)) {
+						int gms_jobid_start_index = string_gms_jobid.length() + 1;
+
+						String jobID = inLine.substring(gms_jobid_start_index,
+								inLineLen);
+
+					} else if (inLine.startsWith(string_gms_ws_jobid)) {
+						
+						//int gms_ws_jobid_start_index = string_gms_ws_jobid.length() + 1;												
+						//String jobID = inLine.substring(gms_ws_jobid_start_index, inLineLen);
+						
+						/* code change added by narendra */
+						String[] arr = inLine.split(":");
+						String jobID = arr[1].trim();
+						/* end of code change */
+
+						job.setId(new Long(jobID));
+
+						// now that the job has been inserted into the db, bind
+						// the cached input
+						// files to the job record
+						for (LogicalFile bean : job.getInputFiles()) {
+							LogicalFile file = LogicalFileDao.get(bean.getId());
+							file.setJobId(job.getId());
+							file.save();
+						}
+
+						ccgJobIDResolved = true;
+
+						if (Settings.DEBUG)
+							log
+									.info("Job "
+											+ jobID
+											+ " successfully submitted via Job Submission Server.");
+
+						// the submit script entered the jobid, so we just need
+						// to make sure and
+						// flush the db so it shows up.
+						JobDao.clearCache();
+						if (arr.length == 3) {
+							job.setId(new Long(arr[3]));
+						}
+
+						break;
+					} else if (inLine.indexOf("ERROR: INPUT FILE NOT FOUND") > -1) {
+						validProject = false;
+						throw new JobSchedulingException(
+								"Error staging input files to remote resource.");
+					} else if (inLine.indexOf(": unknown option") > -1) {
+						validProject = false;
+						throw new JobSchedulingException(
+								"Error launching job submission script on "
+										+ job.getSystem().getName());
+					} else if ((inLine.length() >= 15)
+							&& inLine.substring(0, 15)
+									.equals("gsissh_down_err")) {
+						gsisshEnabled = false;
+						// log.error("Job submission to " +
+						// job.getComputeResource().getName() +
+						// " is currently disabled due to a communication failure on the resource. "
+						// +
+						// "  We are aware of the problem and will bring the resource back up as soon "
+						// +
+						// " as possible.  Thank you for your patience.\n--CCG Administrator\n");
+						// disableResource("Job submission to " +
+						// job.getSystemName() +
+						// " is currently disabled due to a communication failure on the resource. "
+						// +
+						// "  We are aware of the problem and will bring the resource back up as soon "
+						// +
+						// " as possible.  Thank you for your patience.\n--CCG Administrator\n"
+						// +
+						// new Date().toString());
+						throw new JobSchedulingException(
+								"Job submission to "
+										+ job.getSystem().getName()
+										+ " is currently disabled due to a communication failure on the resource. "
+										+ "  We are aware of the problem and will bring the resource back up as soon "
+										+ " as possible.  Thank you for your patience.\n--CCG Administrator\n");
+					} else if ((inLine.length() >= 20)
+							&& inLine.substring(0, 20).equals(
+									"check_diskfull_error")) {
+						diskFull = false;
+						// log.error("Job submission failed due to lack of available disk space.");
+						throw new JobSchedulingException(
+								"Job submission failed due to lack of available disk space.");
+					} else if ((inLine.length() >= 18)
+							&& inLine.substring(0, 18).equals(
+									"gridchemauth_error")) {
+						diskFull = false;
+						// log.error("Job submission failed due to failed authentication check.");
+						throw new PermissionException(
+								"Job submission failed due to failed authentication check.");
+					}
+				}
+			}
+		}
+		inStream.close();
+		
+		if (Settings.DEBUG && !jobSubmitted) {
+			throw new JobSubmissionException(
+					"Remote server timed out while attempting to start the job.");
+		}		
+		
+		return fileText.toString();
+	}
+	
+}
+>>>>>>> 1.9
